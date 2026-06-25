@@ -1,0 +1,36 @@
+{
+  "expo": {
+    "name": "CodingKitty",
+    "slug": "codingkitty",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "automatic",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "assetBundlePatterns": ["**/*"],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.codingkitty.app",
+      "infoPlist": {
+        "NSCameraUsageDescription": "CodingKitty needs camera access to scan and identify cats.",
+        "NSLocationWhenInUseUsageDescription": "CodingKitty needs your location to show nearby cats and sightings."
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#ffffff"
+      },
+      "package": "com.codingkitty.app",
+      "permissions": ["CAMERA", "ACCESS_FINE_LOCATION"]
+    },
+    "plugins": [
+      "expo-camera",
+      "expo-location"
+    ]
+  }
+}

@@ -1,0 +1,183 @@
+// CodingKitty Prisma Schema
+// PostgreSQL with PostGIS (spatial) and pgvector (embeddings) extensions
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  extensions = [postgis, vector]
+}
+
+model User {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  displayName  String
+  passwordHash String
+  xp           Int      @default(0)
+  walletBalance Int     @default(0)
+  createdAt    DateTime @default(now())
+
+  // Relations
+  discoveries     UserCatDiscovery[]
+  ownerships      Ownership[]
+  sightings       Sighting[]
+  donations       Donation[]
+  medicalRequests MedicalRequest[]
+  chatMessages    ChatMessage[]
+  inventory       UserInventory[]
+  discoveredCats  Cat[]            @relation("FirstDiscoverer")
+}
+
+model Cat {
+  id                  String   @id @default(uuid())
+  name                String
+  // pgvector embedding reference — stores the vector ID for similarity search
+  // In production, use: embedding Vector(512) with pgvector extension
+  embeddingRef        String   @default("")
+  firstDiscovererId   String
+  // PostGIS coordinates — in production, consider using geography type
+  // lastKnownLocation geography(Point, 4326)
+  lastKnownApproxLat  Float    @default(0)
+  lastKnownApproxLng  Float    @default(0)
+  photoUrl            String   @default("")
+  registeredAt        DateTime @default(now())
+
+  // Relations
+  firstDiscoverer  User              @relation("FirstDiscoverer", fields: [firstDiscovererId], references: [id])
+  discoveries      UserCatDiscovery[]
+  ownerships       Ownership[]
+  sightings        Sighting[]
+  donations        Donation[]
+  medicalRequests  MedicalRequest[]
+  chatMessages     ChatMessage[]
+}
+
+model UserCatDiscovery {
+  userId       String
+  catId        String
+  discoveredAt DateTime @default(now())
+
+  // Relations
+  user User @relation(fields: [userId], references: [id])
+  cat  Cat  @relation(fields: [catId], references: [id])
+
+  // Compound primary key
+  @@id([userId, catId])
+}
+
+model Ownership {
+  userId String
+  catId  String
+  level  String   @default("discoverer") // discoverer | caretaker | guardian
+  xp     Int      @default(0)
+  since  DateTime @default(now())
+
+  // Relations
+  user User @relation(fields: [userId], references: [id])
+  cat  Cat  @relation(fields: [catId], references: [id])
+
+  // Compound primary key
+  @@id([userId, catId])
+}
+
+model Sighting {
+  id         String   @id @default(uuid())
+  catId      String
+  reporterId String
+  timestamp  DateTime @default(now())
+  // Fuzzed coordinates for privacy — in production consider PostGIS Point type
+  fuzzedLat  Float
+  fuzzedLng  Float
+  photoUrl   String   @default("")
+  type       String   @default("visual") // visual | feeding | medical | distress
+
+  // Relations
+  cat      Cat  @relation(fields: [catId], references: [id])
+  reporter User @relation(fields: [reporterId], references: [id])
+}
+
+model Donation {
+  id         String   @id @default(uuid())
+  donorId    String
+  catId      String
+  foodItemId String
+  amountCents Int
+  source     String   @default("wallet") // wallet | direct_payment
+  workflowId String   @default("")
+  status     String   @default("pending") // pending | escrowed | delivered | refunded | cancelled
+  createdAt  DateTime @default(now())
+
+  // Relations
+  donor    User     @relation(fields: [donorId], references: [id])
+  cat      Cat      @relation(fields: [catId], references: [id])
+  foodItem FoodItem @relation(fields: [foodItemId], references: [id])
+}
+
+model MedicalRequest {
+  id          String   @id @default(uuid())
+  catId       String
+  requesterId String
+  type        String   @default("checkup") // vaccination | sterilization | treatment | checkup
+  status      String   @default("pending") // pending | approved | in_progress | completed | rejected
+  partnerId   String?
+  workflowId  String   @default("")
+  documents   String[] @default([])
+  createdAt   DateTime @default(now())
+
+  // Relations
+  cat       Cat      @relation(fields: [catId], references: [id])
+  requester User     @relation(fields: [requesterId], references: [id])
+  partner   Partner? @relation(fields: [partnerId], references: [id])
+}
+
+model ChatMessage {
+  id        String   @id @default(uuid())
+  catId     String
+  senderId  String
+  content   String
+  createdAt DateTime @default(now())
+
+  // Relations
+  cat    Cat  @relation(fields: [catId], references: [id])
+  sender User @relation(fields: [senderId], references: [id])
+}
+
+model Partner {
+  id           String  @id @default(uuid())
+  name         String
+  type         String  @default("veterinary_clinic") // veterinary_clinic | shelter | pet_store | ngo
+  contactEmail String
+  verified     Boolean @default(false)
+
+  // Relations
+  medicalRequests MedicalRequest[]
+}
+
+model FoodItem {
+  id          String @id @default(uuid())
+  name        String
+  priceCents  Int
+  description String @default("")
+  imageUrl    String @default("")
+
+  // Relations
+  donations Donation[]
+  inventory UserInventory[]
+}
+
+model UserInventory {
+  userId     String
+  foodItemId String
+  quantity   Int @default(0)
+
+  // Relations
+  user     User     @relation(fields: [userId], references: [id])
+  foodItem FoodItem @relation(fields: [foodItemId], references: [id])
+
+  // Compound primary key
+  @@id([userId, foodItemId])
+}
