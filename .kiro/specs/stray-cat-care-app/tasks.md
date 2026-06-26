@@ -19,8 +19,8 @@ Implement the CodingKitty modular monolith (Node.js/TypeScript backend + React N
   - Note: DATABASE_URL in `packages/server/.env` uses port 5433 (Docker maps host 5433 → container 5432). If port 5433 is occupied, change the port mapping in `docker-compose.yml` and update `.env` accordingly.
   - _Requirements: 14.3_
 
-- [ ] 2. Auth Module
-  - [ ] 2.1 Implement register, login, refresh, logout endpoints using JWT (15 min access enforced exactly with no tolerance / rotating refresh).
+- [x] 2. Auth Module
+  - [x] 2.1 Implement register, login, refresh, logout endpoints using JWT (15 min access enforced exactly with no tolerance / rotating refresh).
     - Passwords hashed with bcrypt.
     - _Requirements: 15.6_
   - [ ]\* 2.2 Write unit tests for token generation, refresh rotation, and expiry edge cases.
