@@ -9,12 +9,14 @@ Implement the CodingKitty modular monolith (Node.js/TypeScript backend + React N
 ## Tasks
 
 - [ ] 1. Project scaffolding and database schema
-  - Initialise monorepo: `packages/server` (Node.js/TypeScript + Express), `packages/client` (React Native), `packages/shared` (types).
-  - Set up PostgreSQL with PostGIS and pgvector extensions.
-  - Write and run Prisma (or Drizzle) migrations for all entities: User, Cat, UserCatDiscovery, Ownership, Sighting, Donation, MedicalRequest, ChatMessage, Partner, FoodItem, UserInventory.
-  - Add geo-index on Sighting.fuzzedGeo and Cat.lastKnownApproxLocation.
-  - Add pgvector index on Cat.embeddingRef.
-  - Enforce DB-level constraint: Ownership row requires a matching UserCatDiscovery row (foreign key or trigger).
+  - Prerequisites: Docker and Docker Compose installed, Node.js >= 20.
+  - Run `npm install` at the monorepo root to install all workspace dependencies.
+  - Run `docker compose up -d` at the project root to start PostgreSQL 16 with PostGIS + pgvector (container: `codingkitty-db`, port 5432 mapped to host 5433).
+  - Wait for the DB healthcheck to pass: `docker compose ps` should show `codingkitty-db` as healthy.
+  - Run `cd packages/server && npx prisma generate` to generate the Prisma Client.
+  - Run `npx prisma migrate deploy` to apply the migration (`0001_initial_schema`) which creates all tables (User, Cat, UserCatDiscovery, Ownership, Sighting, Donation, MedicalRequest, ChatMessage, Partner, FoodItem, UserInventory), enables PostGIS and pgvector extensions, adds geo-indexes, the HNSW vector index, and the Ownership→UserCatDiscovery FK constraint.
+  - Verify: `docker exec codingkitty-db psql -U postgres -d codingkitty -c "\\dt"` should list all 11 tables.
+  - Note: DATABASE_URL in `packages/server/.env` uses port 5433 (Docker maps host 5433 → container 5432). If port 5433 is occupied, change the port mapping in `docker-compose.yml` and update `.env` accordingly.
   - _Requirements: 14.3_
 
 - [ ] 2. Auth Module

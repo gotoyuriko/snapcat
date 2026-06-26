@@ -13,13 +13,13 @@ datasource db {
 }
 
 model User {
-  id           String   @id @default(uuid())
-  email        String   @unique
-  displayName  String
-  passwordHash String
-  xp           Int      @default(0)
-  walletBalance Int     @default(0)
-  createdAt    DateTime @default(now())
+  id            String   @id @default(uuid())
+  email         String   @unique
+  displayName   String
+  passwordHash  String
+  xp            Int      @default(0)
+  walletBalance Int      @default(0) // MYR cents
+  createdAt     DateTime @default(now())
 
   // Relations
   discoveries     UserCatDiscovery[]
@@ -33,27 +33,28 @@ model User {
 }
 
 model Cat {
-  id                  String   @id @default(uuid())
-  name                String
-  // pgvector embedding reference — stores the vector ID for similarity search
-  // In production, use: embedding Vector(512) with pgvector extension
-  embeddingRef        String   @default("")
+  id                  String                      @id @default(uuid())
+  name                String?
+  // pgvector: 512-dimensional embedding for MegaDescriptor re-ID
+  embedding           Unsupported("vector(512)")?
+  embeddingRef        String                      @default("")
   firstDiscovererId   String
-  // PostGIS coordinates — in production, consider using geography type
-  // lastKnownLocation geography(Point, 4326)
-  lastKnownApproxLat  Float    @default(0)
-  lastKnownApproxLng  Float    @default(0)
-  photoUrl            String   @default("")
-  registeredAt        DateTime @default(now())
+  lastKnownApproxLat  Float                       @default(0)
+  lastKnownApproxLng  Float                       @default(0)
+  photoUrl            String?
+  registeredAt        DateTime                    @default(now())
 
   // Relations
-  firstDiscoverer  User              @relation("FirstDiscoverer", fields: [firstDiscovererId], references: [id])
-  discoveries      UserCatDiscovery[]
-  ownerships       Ownership[]
-  sightings        Sighting[]
-  donations        Donation[]
-  medicalRequests  MedicalRequest[]
-  chatMessages     ChatMessage[]
+  firstDiscoverer User              @relation("FirstDiscoverer", fields: [firstDiscovererId], references: [id])
+  discoveries     UserCatDiscovery[]
+  ownerships      Ownership[]
+  sightings       Sighting[]
+  donations       Donation[]
+  medicalRequests MedicalRequest[]
+  chatMessages    ChatMessage[]
+
+  // Indexes
+  @@index([lastKnownApproxLat, lastKnownApproxLng], name: "idx_cat_approx_location")
 }
 
 model UserCatDiscovery {
@@ -62,8 +63,9 @@ model UserCatDiscovery {
   discoveredAt DateTime @default(now())
 
   // Relations
-  user User @relation(fields: [userId], references: [id])
-  cat  Cat  @relation(fields: [catId], references: [id])
+  user      User        @relation(fields: [userId], references: [id])
+  cat       Cat         @relation(fields: [catId], references: [id])
+  ownership Ownership?
 
   // Compound primary key
   @@id([userId, catId])
@@ -72,13 +74,16 @@ model UserCatDiscovery {
 model Ownership {
   userId String
   catId  String
-  level  String   @default("discoverer") // discoverer | caretaker | guardian
+  level  Int      @default(0)
   xp     Int      @default(0)
   since  DateTime @default(now())
 
   // Relations
-  user User @relation(fields: [userId], references: [id])
-  cat  Cat  @relation(fields: [catId], references: [id])
+  user      User             @relation(fields: [userId], references: [id])
+  cat       Cat              @relation(fields: [catId], references: [id])
+  // FK to UserCatDiscovery: enforces Requirement 14.3 — Ownership can only exist
+  // if a corresponding UserCatDiscovery record exists for the same (userId, catId).
+  discovery UserCatDiscovery @relation(fields: [userId, catId], references: [userId, catId])
 
   // Compound primary key
   @@id([userId, catId])
@@ -89,40 +94,43 @@ model Sighting {
   catId      String
   reporterId String
   timestamp  DateTime @default(now())
-  // Fuzzed coordinates for privacy — in production consider PostGIS Point type
   fuzzedLat  Float
   fuzzedLng  Float
   photoUrl   String   @default("")
-  type       String   @default("visual") // visual | feeding | medical | distress
+  type       String   @default("scan") // 'scan' | 'manual'
 
   // Relations
   cat      Cat  @relation(fields: [catId], references: [id])
   reporter User @relation(fields: [reporterId], references: [id])
+
+  // Geo index on fuzzed coordinates
+  @@index([fuzzedLat, fuzzedLng], name: "idx_sighting_fuzzed_geo")
 }
 
 model Donation {
-  id         String   @id @default(uuid())
-  donorId    String
-  catId      String
-  foodItemId String
+  id          String   @id @default(uuid())
+  donorId     String
+  catId       String
+  foodItemId  String?
+  foodItem    String   @default("")
   amountCents Int
-  source     String   @default("wallet") // wallet | direct_payment
-  workflowId String   @default("")
-  status     String   @default("pending") // pending | escrowed | delivered | refunded | cancelled
-  createdAt  DateTime @default(now())
+  source      String   @default("wallet") // 'wallet' | 'direct'
+  workflowId  String   @default("")
+  status      String   @default("pending") // 'pending' | 'escrowed' | 'released' | 'refunded'
+  createdAt   DateTime @default(now())
 
   // Relations
-  donor    User     @relation(fields: [donorId], references: [id])
-  cat      Cat      @relation(fields: [catId], references: [id])
-  foodItem FoodItem @relation(fields: [foodItemId], references: [id])
+  donor        User      @relation(fields: [donorId], references: [id])
+  cat          Cat       @relation(fields: [catId], references: [id])
+  foodItemRef  FoodItem? @relation(fields: [foodItemId], references: [id])
 }
 
 model MedicalRequest {
   id          String   @id @default(uuid())
   catId       String
   requesterId String
-  type        String   @default("checkup") // vaccination | sterilization | treatment | checkup
-  status      String   @default("pending") // pending | approved | in_progress | completed | rejected
+  type        String   @default("medical") // 'medical' | 'grooming'
+  status      String   @default("pending") // 'pending' | 'verified' | 'in_progress' | 'reimbursed' | 'rejected'
   partnerId   String?
   workflowId  String   @default("")
   documents   String[] @default([])
@@ -149,7 +157,7 @@ model ChatMessage {
 model Partner {
   id           String  @id @default(uuid())
   name         String
-  type         String  @default("veterinary_clinic") // veterinary_clinic | shelter | pet_store | ngo
+  type         String  @default("vet") // 'vet' | 'salon'
   contactEmail String
   verified     Boolean @default(false)
 
@@ -158,11 +166,11 @@ model Partner {
 }
 
 model FoodItem {
-  id          String @id @default(uuid())
+  id          String  @id @default(uuid())
   name        String
   priceCents  Int
-  description String @default("")
-  imageUrl    String @default("")
+  description String?
+  imageUrl    String?
 
   // Relations
   donations Donation[]
