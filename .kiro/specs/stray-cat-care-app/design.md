@@ -88,114 +88,129 @@ graph TD
 ## Data Models
 
 ### User
+
 ```typescript
 interface User {
-  id: UUID
-  email: string
-  displayName: string
-  xp: number
-  walletBalance: number    // in MYR cents (sandbox)
-  createdAt: Date
+  id: UUID;
+  email: string;
+  displayName: string;
+  xp: number;
+  walletBalance: number; // in MYR cents (sandbox)
+  createdAt: Date;
 }
 ```
 
 ### Cat
+
 ```typescript
 interface Cat {
-  id: UUID
-  name: string | null
-  embeddingRef: string     // reference to vector store entry
-  firstDiscovererId: UUID
-  lastKnownApproxLat: number
-  lastKnownApproxLng: number
-  photoUrl: string | null
-  registeredAt: Date
+  id: UUID;
+  name: string | null;
+  embeddingRef: string; // reference to vector store entry
+  firstDiscovererId: UUID;
+  lastKnownApproxLat: number;
+  lastKnownApproxLng: number;
+  photoUrl: string | null;
+  registeredAt: Date;
 }
 ```
 
-### UserCatDiscovery  *(per-user "found" state — distinct from ownership)*
+### UserCatDiscovery _(per-user "found" state — distinct from ownership)_
+
 ```typescript
 interface UserCatDiscovery {
-  userId: UUID
-  catId: UUID
-  discoveredAt: Date
+  userId: UUID;
+  catId: UUID;
+  discoveredAt: Date;
 }
 ```
 
-### Ownership  *(contribution ladder — distinct from discovery)*
+### Ownership _(contribution ladder — distinct from discovery)_
+
 ```typescript
 interface Ownership {
-  userId: UUID
-  catId: UUID
-  level: number       // 0 = Discovered, 1+ = Owner
-  xp: number          // XP contributed specifically for this cat
-  since: Date
+  userId: UUID;
+  catId: UUID;
+  level: number; // 0 = Discovered, 1+ = Owner
+  xp: number; // XP contributed specifically for this cat
+  since: Date;
 }
 ```
 
 ### Sighting
+
 ```typescript
 interface Sighting {
-  id: UUID
-  catId: UUID
-  reporterId: UUID
-  timestamp: Date
-  fuzzedLat: number      // ±100–200 m from actual GPS
-  fuzzedLng: number
-  photoUrl: string
-  type: 'scan' | 'manual'
+  id: UUID;
+  catId: UUID;
+  reporterId: UUID;
+  timestamp: Date;
+  fuzzedLat: number; // ±100–200 m from actual GPS
+  fuzzedLng: number;
+  photoUrl: string;
+  type: "scan" | "manual";
 }
 ```
 
 ### Donation
+
 ```typescript
 interface Donation {
-  id: UUID
-  donorId: UUID
-  catId: UUID
-  foodItem: string
-  amountCents: number
-  source: 'wallet' | 'direct'
-  workflowId: string   // Temporal workflow ID
-  status: 'pending' | 'escrowed' | 'released' | 'refunded'
-  createdAt: Date
+  id: UUID;
+  donorId: UUID;
+  catId: UUID;
+  foodItem: string;
+  amountCents: number;
+  source: "wallet" | "direct";
+  workflowId: string; // Temporal workflow ID
+  status: "pending" | "escrowed" | "released" | "refunded";
+  createdAt: Date;
 }
 ```
 
 ### MedicalRequest
+
 ```typescript
 interface MedicalRequest {
-  id: UUID
-  catId: UUID
-  requesterId: UUID
-  type: 'medical' | 'grooming'
-  status: 'pending' | 'verified' | 'in_progress' | 'reimbursed' | 'rejected'
-  partnerId: UUID | null
-  workflowId: string   // Temporal workflow ID
-  documents: string[]  // object-storage URLs
-  createdAt: Date
+  id: UUID;
+  catId: UUID;
+  requesterId: UUID;
+  type: "medical" | "grooming";
+  status:
+    | "pending"
+    | "verified"
+    | "in_progress"
+    | "reimbursed"
+    | "rejected"
+    | "timed_out";
+  partnerId: UUID | null;
+  workflowId: string; // Temporal workflow ID
+  documents: string[]; // object-storage URLs
+  createdAt: Date;
 }
 ```
 
 ### ChatMessage
+
 ```typescript
 interface ChatMessage {
-  id: UUID
-  catId: UUID
-  senderId: UUID
-  content: string
-  createdAt: Date
+  id: UUID;
+  catId: UUID;
+  senderId: UUID;
+  content: string;
+  createdAt: Date;
 }
 ```
 
 ### Partner
+
 ```typescript
 interface Partner {
-  id: UUID
-  name: string
-  type: 'vet' | 'salon'
-  contactEmail: string
-  verified: boolean
+  id: UUID;
+  name: string;
+  type: "vet" | "salon";
+  contactEmail: string;
+  verified: boolean;
 }
 ```
 
@@ -204,10 +219,12 @@ interface Partner {
 ## Module Breakdown
 
 ### Auth Module
+
 - JWT-based authentication (register, login, refresh, logout)
 - Permissions middleware: ownership level checks for gated resources
 
 ### Recognition Module
+
 - Orchestrates the two-stage AI pipeline (see Sequence Diagram 1)
 - Calls YOLO service → crops cat from photo
 - Calls MegaDescriptor → generates 512-dim embedding → queries pgvector
@@ -215,31 +232,37 @@ interface Partner {
 - Triggers Sighting creation and Gamification XP events after a match
 
 ### Sighting / Location Module
+
 - Stores sightings with PostGIS geo-index
 - Fuzzes GPS coordinates before persistence
 - Provides map tile query: returns pins/silhouettes filtered by user's UserCatDiscovery set
 - Updates `Cat.lastKnownApproxLocation` on every new sighting
 
 ### Gamification Module
+
 - Awards XP per action: scan/discover (50 XP), donation (10 XP per MYR), medical request (100 XP)
 - Checks Ownership XP threshold (500 XP default) → promotes Discovered → Owner (level 1)
 - Broadcasts level-up notifications via Alerts Module
 
 ### Donation / Wallet Module
+
 - Top-up wallet via Payment Gateway SANDBOX
 - Donate food: deducts wallet → creates Donation record → Temporal escrow workflow
 - Aikido security scanner wraps all payment surface calls
 
 ### Medical Module
+
 - Creates MedicalRequest → starts Temporal medical-reimbursement workflow
 - Gated: requester must be Lvl1+ Owner of the cat
 - Attaches supporting documents to object storage
 
 ### Alerts Module
+
 - Sends push notifications (FCM/APNs) for: level-up, medical status updates, new sightings near user, donation release
 - Rate-limited to prevent spam
 
 ### Staff-Verification Module
+
 - Internal admin API for verifying Partner records
 - Approves/rejects pending partner applications
 
@@ -252,18 +275,23 @@ interface Partner {
 **Purpose**: Handles user registration, login, token lifecycle, and permission enforcement.
 
 **Interface**:
+
 ```typescript
 interface AuthModule {
-  register(email: string, password: string, displayName: string): Promise<User>
-  login(email: string, password: string): Promise<{ accessToken: string; refreshToken: string }>
-  refreshToken(refreshToken: string): Promise<{ accessToken: string }>
-  logout(refreshToken: string): Promise<void>
-  checkOwnership(userId: UUID, catId: UUID, minLevel: number): Promise<boolean>
+  register(email: string, password: string, displayName: string): Promise<User>;
+  login(
+    email: string,
+    password: string,
+  ): Promise<{ accessToken: string; refreshToken: string }>;
+  refreshToken(refreshToken: string): Promise<{ accessToken: string }>;
+  logout(refreshToken: string): Promise<void>;
+  checkOwnership(userId: UUID, catId: UUID, minLevel: number): Promise<boolean>;
 }
 ```
 
 **Responsibilities**:
-- Issue and validate JWT access tokens (15-minute expiry)
+
+- Issue and validate JWT access tokens (15-minute expiry, enforced exactly with no tolerance)
 - Rotate refresh tokens on use
 - Expose middleware for ownership-level gating on all protected routes
 
@@ -274,20 +302,32 @@ interface AuthModule {
 **Purpose**: Orchestrates the two-stage AI pipeline (YOLO detection + MegaDescriptor re-ID) to match or register cats.
 
 **Interface**:
+
 ```typescript
 interface RecognitionModule {
-  recognizeCat(photo: Buffer, userGPS: LatLng, userId: UUID): Promise<RecognitionResult>
-  confirmMatch(userId: UUID, catId: UUID | 'new', embedding: number[], fuzzedGPS: LatLng, photoUrl: string): Promise<RecognitionResult>
+  recognizeCat(
+    photo: Buffer,
+    userGPS: LatLng,
+    userId: UUID,
+  ): Promise<RecognitionResult>;
+  confirmMatch(
+    userId: UUID,
+    catId: UUID | "new",
+    embedding: number[],
+    fuzzedGPS: LatLng,
+    photoUrl: string,
+  ): Promise<RecognitionResult>;
 }
 
 type RecognitionResult =
-  | { result: 'no_cat' }
-  | { result: 'matched';        cat: Cat; xpAwarded: number; levelUp: boolean }
-  | { result: 'confirm_needed'; candidateCat: Cat }
-  | { result: 'new_cat';        cat: Cat; xpAwarded: number }
+  | { result: "no_cat" }
+  | { result: "matched"; cat: Cat; xpAwarded: number; levelUp: boolean }
+  | { result: "confirm_needed"; candidateCat: Cat }
+  | { result: "new_cat"; cat: Cat; xpAwarded: number };
 ```
 
 **Responsibilities**:
+
 - Call YOLO service to crop cat from photo
 - Call MegaDescriptor to produce 512-dim embedding
 - Query pgvector with similarity thresholds (≥0.92 = matched, 0.72–0.92 = confirm, <0.72 = new)
@@ -300,22 +340,30 @@ type RecognitionResult =
 **Purpose**: Persists cat sightings with fuzzed GPS and serves geo-filtered map data.
 
 **Interface**:
+
 ```typescript
 interface SightingModule {
-  appendSighting(catId: UUID, reporterId: UUID, rawGPS: LatLng, photoUrl: string, type: 'scan' | 'manual'): Promise<Sighting>
-  getMapPins(viewBounds: BoundingBox, userId: UUID): Promise<MapPin[]>
-  updateCatLastKnownLocation(catId: UUID, fuzzedGPS: LatLng): Promise<void>
+  appendSighting(
+    catId: UUID,
+    reporterId: UUID,
+    rawGPS: LatLng,
+    photoUrl: string,
+    type: "scan" | "manual",
+  ): Promise<Sighting>;
+  getMapPins(viewBounds: BoundingBox, userId: UUID): Promise<MapPin[]>;
+  updateCatLastKnownLocation(catId: UUID, fuzzedGPS: LatLng): Promise<void>;
 }
 
 interface MapPin {
-  catId: UUID
-  approxLat: number
-  approxLng: number
-  discovered: boolean   // true if UserCatDiscovery record exists for this user
+  catId: UUID;
+  approxLat: number;
+  approxLng: number;
+  discovered: boolean; // true if UserCatDiscovery record exists for this user
 }
 ```
 
 **Responsibilities**:
+
 - Apply ±100–200 m GPS jitter before persisting or serving any coordinate
 - Index sightings with PostGIS for efficient bounding-box queries
 - Return silhouette pins for undiscovered cats, full pins for discovered cats
@@ -327,22 +375,32 @@ interface MapPin {
 **Purpose**: Awards XP for user actions and manages per-user, per-cat ownership level progression.
 
 **Interface**:
+
 ```typescript
 interface GamificationModule {
-  recordAction(userId: UUID, catId: UUID, action: GamificationAction): Promise<XPResult>
-  getOwnership(userId: UUID, catId: UUID): Promise<Ownership | null>
+  recordAction(
+    userId: UUID,
+    catId: UUID,
+    action: GamificationAction,
+  ): Promise<XPResult>;
+  getOwnership(userId: UUID, catId: UUID): Promise<Ownership | null>;
 }
 
-type GamificationAction = 'discover_new' | 'scan' | 'donation' | 'medical_reimbursed'
+type GamificationAction =
+  | "discover_new"
+  | "scan"
+  | "donation"
+  | "medical_reimbursed";
 
 interface XPResult {
-  xpAwarded: number
-  newLevel: number
-  levelUp: boolean
+  xpAwarded: number;
+  newLevel: number;
+  levelUp: boolean;
 }
 ```
 
 **Responsibilities**:
+
 - Award XP per the Gamification Rules table
 - Enforce the 200 XP/day donation cap per user per cat
 - Promote Ownership level when cumulative per-cat XP crosses a threshold
@@ -355,18 +413,33 @@ interface XPResult {
 **Purpose**: Manages wallet top-ups via sandbox payment gateway and food donation escrow workflows.
 
 **Interface**:
+
 ```typescript
 interface DonationModule {
-  initiateTopUp(userId: UUID, amountCents: number): Promise<{ paymentUrl: string; intentId: string }>
-  confirmTopUp(intentId: string): Promise<void>
-  donateFoodToCat(userId: UUID, catId: UUID, foodItem: string, amountCents: number): Promise<Donation>
-  releaseToPool(catId: UUID, amountCents: number): Promise<void>
-  releaseReimbursement(catId: UUID, amountCents: number, requestId: UUID): Promise<string>
+  initiateTopUp(
+    userId: UUID,
+    amountCents: number,
+  ): Promise<{ paymentUrl: string; intentId: string }>;
+  confirmTopUp(intentId: string): Promise<void>;
+  donateFoodToCat(
+    userId: UUID,
+    catId: UUID,
+    foodItem: string,
+    amountCents: number,
+  ): Promise<Donation>;
+  releaseToPool(catId: UUID, amountCents: number): Promise<void>;
+  releaseReimbursement(
+    catId: UUID,
+    amountCents: number,
+    requestId: UUID,
+  ): Promise<string>;
 }
 ```
 
 **Responsibilities**:
+
 - Enforce wallet balance non-negativity before any debit
+- Reject donations when user has insufficient inventory; no donation record shall be created for rejected transactions
 - Wrap all payment surface calls with Aikido security scanner (if available) or `npm audit` + Trivy
 - Start `DonationEscrow` Temporal workflow on food donation
 - Handle payment gateway webhooks idempotently
@@ -378,15 +451,25 @@ interface DonationModule {
 **Purpose**: Creates and tracks medical/grooming requests for cats, driven by a Temporal reimbursement workflow.
 
 **Interface**:
+
 ```typescript
 interface MedicalModule {
-  createMedicalRequest(userId: UUID, catId: UUID, type: 'medical' | 'grooming', docs: string[]): Promise<MedicalRequest>
-  updateStatus(requestId: UUID, status: MedicalRequest['status']): Promise<void>
-  getRequest(requestId: UUID): Promise<MedicalRequest>
+  createMedicalRequest(
+    userId: UUID,
+    catId: UUID,
+    type: "medical" | "grooming",
+    docs: string[],
+  ): Promise<MedicalRequest>;
+  updateStatus(
+    requestId: UUID,
+    status: MedicalRequest["status"],
+  ): Promise<void>;
+  getRequest(requestId: UUID): Promise<MedicalRequest>;
 }
 ```
 
 **Responsibilities**:
+
 - Gate request creation behind Lvl1+ ownership check
 - Upload supporting documents to private object storage
 - Start `MedicalReimbursement` Temporal workflow (workflow ID = requestId for idempotence)
@@ -398,15 +481,25 @@ interface MedicalModule {
 **Purpose**: Delivers push notifications (FCM/APNs) for key lifecycle events.
 
 **Interface**:
+
 ```typescript
 interface AlertsModule {
-  notify(userId: UUID, message: string, payload?: Record<string, unknown>): Promise<void>
-  notifyMany(userIds: UUID[], message: string, payload?: Record<string, unknown>): Promise<void>
+  notify(
+    userId: UUID,
+    message: string,
+    payload?: Record<string, unknown>,
+  ): Promise<void>;
+  notifyMany(
+    userIds: UUID[],
+    message: string,
+    payload?: Record<string, unknown>,
+  ): Promise<void>;
 }
 ```
 
 **Responsibilities**:
-- Rate-limit notifications to ≤10 per user per sliding 1-hour window
+
+- Rate-limit notifications to ≤10 per user per sliding 1-hour window (ownership milestone notifications bypass this limit)
 - Route to FCM (Android) or APNs (iOS) based on device registration
 - Triggered by: level-up, medical status change, new nearby sighting, donation release
 
@@ -417,16 +510,22 @@ interface AlertsModule {
 **Purpose**: Internal admin API for approving partner (vet/salon) applications and verifying medical invoices.
 
 **Interface**:
+
 ```typescript
 interface StaffVerificationModule {
-  verifyRequest(requestId: UUID): Promise<{ approved: boolean; partnerId: UUID | null }>
-  verifyInvoice(invoiceUrl: string): Promise<{ invoiceValid: boolean; amountCents: number }>
-  approvePartner(partnerId: UUID): Promise<void>
-  rejectPartner(partnerId: UUID, reason: string): Promise<void>
+  verifyRequest(
+    requestId: UUID,
+  ): Promise<{ approved: boolean; partnerId: UUID | null }>;
+  verifyInvoice(
+    invoiceUrl: string,
+  ): Promise<{ invoiceValid: boolean; amountCents: number }>;
+  approvePartner(partnerId: UUID): Promise<void>;
+  rejectPartner(partnerId: UUID, reason: string): Promise<void>;
 }
 ```
 
 **Responsibilities**:
+
 - Restricted to staff-role JWT holders only
 - Signals Temporal workflows via verified/rejected outcomes
 - Maintains Partner registry with verification status
@@ -610,6 +709,7 @@ sequenceDiagram
 The **Cat Profile** is the convergence screen in the user flow — all paths (map tap on revealed pin, scan result, Catpedia entry tap) route here.
 
 **Contents:**
+
 - Cat name, photo, sighting history, last-known area
 - Ownership level + XP progress bar for the current user
 - "Feed Cat" button (WebAR) — available to Lvl0+ (discovered)
@@ -620,23 +720,26 @@ The **Cat Profile** is the convergence screen in the user flow — all paths (ma
 ### Owner Leaderboard
 
 The Cat Profile displays a per-cat leaderboard showing all Owners (Lvl1+) ranked by cumulative per-cat XP. The leaderboard:
+
 - Shows user display name, ownership level, and XP total
 - Is visible to anyone who has discovered the cat (Lvl0+)
+- Displays a "No owners yet" message when no Lvl1+ Owners exist
 - Updates in near-real-time as donations and actions accrue XP
 - Highlights the current user's position
 
 **Interface:**
+
 ```typescript
 interface LeaderboardEntry {
-  userId: UUID
-  displayName: string
-  level: number
-  xp: number
-  rank: number
+  userId: UUID;
+  displayName: string;
+  level: number;
+  xp: number;
+  rank: number;
 }
 
 interface CatProfileModule {
-  getLeaderboard(catId: UUID, limit?: number): Promise<LeaderboardEntry[]>
+  getLeaderboard(catId: UUID, limit?: number): Promise<LeaderboardEntry[]>;
 }
 ```
 
@@ -660,34 +763,34 @@ This keeps AR entirely browser-based — no native AR SDK or paid service (like 
 
 ## Gamification Rules
 
-| Action | XP Awarded | Notes |
-|---|---|---|
-| First scan (discover new cat) | 100 XP | Bonus for being first discoverer |
-| Scan existing cat | 50 XP | Per unique daily scan per cat |
-| Donate food item (1 RM) | 1 XP | e.g., kibble = 1 RM = 1 XP |
-| Donate food item (5 RM) | 5 XP | e.g., cat snack = 5 RM = 5 XP |
-| Donate food item (10 RM) | 10 XP | e.g., tuna can = 10 RM = 10 XP |
-| Submit medical request | 100 XP | On reimbursement completion |
+| Action                        | XP Awarded | Notes                            |
+| ----------------------------- | ---------- | -------------------------------- |
+| First scan (discover new cat) | 100 XP     | Bonus for being first discoverer |
+| Scan existing cat             | 50 XP      | Per unique daily scan per cat    |
+| Donate food item (1 RM)       | 1 XP       | e.g., kibble = 1 RM = 1 XP       |
+| Donate food item (5 RM)       | 5 XP       | e.g., cat snack = 5 RM = 5 XP    |
+| Donate food item (10 RM)      | 10 XP      | e.g., tuna can = 10 RM = 10 XP   |
+| Submit medical request        | 100 XP     | On reimbursement completion      |
 
 **XP equals the MYR price of the donated item (1 RM = 1 XP). Capped at 200 XP/day per cat from donations.**
 
 **Ownership Level Thresholds (cumulative per-cat XP):**
 
-| Level | Cumulative XP | Status |
-|---|---|---|
-| Lvl0 | 0 | Discovered |
-| Lvl1 | 1 | Owner (unlocks chat + medical) |
-| Lvl2 | 6 | |
-| Lvl3 | 16 | |
-| Lvl4 | 31 | |
-| Lvl5 | 56 | |
-| Lvl6 | 96 | |
-| Lvl7 | 156 | |
-| Lvl8 | 236 | |
-| Lvl9 | 336 | |
-| Lvl10 | 486 | Max level |
+| Level | Cumulative XP | Status                         |
+| ----- | ------------- | ------------------------------ |
+| Lvl0  | 0             | Discovered                     |
+| Lvl1  | 1             | Owner (unlocks chat + medical) |
+| Lvl2  | 6             |                                |
+| Lvl3  | 16            |                                |
+| Lvl4  | 31            |                                |
+| Lvl5  | 56            |                                |
+| Lvl6  | 96            |                                |
+| Lvl7  | 156           |                                |
+| Lvl8  | 236           |                                |
+| Lvl9  | 336           |                                |
+| Lvl10 | 486           | Max level                      |
 
-XP counters never reset on level-up. Levels can decrease if XP falls below a threshold.
+XP counters never reset on level-up; accumulated XP remains visible to the User at all times. Levels can decrease if XP falls below a threshold.
 
 ---
 
@@ -756,6 +859,7 @@ XP counters never reset on level-up. Levels can decrease if XP falls below a thr
 Each module is tested in isolation with its external dependencies (database, AI services, Temporal, payment gateway, push provider) replaced by fakes or mocks.
 
 Key unit test cases:
+
 - **Recognition Module**: Correct result variant (`matched` / `confirm_needed` / `new_cat` / `no_cat`) for similarity values at and around the 0.72 and 0.92 thresholds.
 - **Gamification Module**: XP award amounts match the Gamification Rules table for each action; daily 200 XP donation cap is enforced; ownership level promotion fires at the correct cumulative XP thresholds.
 - **Donation Module**: Wallet debit is rejected when balance would go negative; `confirmTopUp` is idempotent on the same `intentId`.
@@ -770,15 +874,15 @@ Key unit test cases:
 
 Properties derived from the Correctness Properties section are verified with randomly generated inputs:
 
-| Property | Generator Strategy |
-|---|---|
-| **P1 — Scan result exclusivity** | Generate random similarity scores (0.0–1.0) and assert exactly one `RecognitionResult` variant is returned. |
-| **P2 — GPS fuzz invariant** | Generate raw GPS coordinates (lat ∈ [–90, 90], lng ∈ [–180, 180]); assert fuzzed output differs from raw input by a non-zero offset. |
-| **P3 — Ownership monotonicity** | Generate sequences of XP-award events; assert level never decreases once Lvl1 is reached during normal operation. |
-| **P4 — Wallet non-negativity** | Generate interleaved top-up and donation sequences; assert balance never goes below 0 after any committed transaction. |
-| **P6 — Temporal idempotence** | Re-trigger workflows with duplicate workflowIds; assert final financial outcome (credits/debits/reimbursements) equals the single-run outcome. |
-| **P10 — XP award correctness** | Generate random donation amounts; assert XP = price in MYR, capped at 200/day per user per cat. |
-| **P11 — Notification rate limit** | Generate bursts of notification triggers; assert ≤10 notifications delivered per user per 1-hour sliding window. |
+| Property                          | Generator Strategy                                                                                                                             |
+| --------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| **P1 — Scan result exclusivity**  | Generate random similarity scores (0.0–1.0) and assert exactly one `RecognitionResult` variant is returned.                                    |
+| **P2 — GPS fuzz invariant**       | Generate raw GPS coordinates (lat ∈ [–90, 90], lng ∈ [–180, 180]); assert fuzzed output differs from raw input by a non-zero offset.           |
+| **P3 — Ownership monotonicity**   | Generate sequences of XP-award events; assert level never decreases once Lvl1 is reached during normal operation.                              |
+| **P4 — Wallet non-negativity**    | Generate interleaved top-up and donation sequences; assert balance never goes below 0 after any committed transaction.                         |
+| **P6 — Temporal idempotence**     | Re-trigger workflows with duplicate workflowIds; assert final financial outcome (credits/debits/reimbursements) equals the single-run outcome. |
+| **P10 — XP award correctness**    | Generate random donation amounts; assert XP = price in MYR, capped at 200/day per user per cat.                                                |
+| **P11 — Notification rate limit** | Generate bursts of notification triggers; assert ≤10 notifications delivered per user per 1-hour sliding window.                               |
 
 ---
 
@@ -787,6 +891,7 @@ Properties derived from the Correctness Properties section are verified with ran
 Integration tests run against a local environment with real PostgreSQL/PostGIS, pgvector, and a Temporal dev server, but with AI services and the payment gateway replaced by deterministic stubs.
 
 Key integration test scenarios:
+
 - **Full scan flow** (Diagram 1): Submit a photo stub, traverse all three recognition branches, assert Sighting and Ownership records are written correctly and XP is awarded.
 - **Medical reimbursement workflow** (Diagram 2): Walk the full Temporal workflow through staff approval, partner acceptance, invoice verification, and reimbursement release; assert status transitions and XP award.
 - **Donation escrow workflow** (Diagram 3): Top up wallet, donate, assert escrow hold and release; assert wallet balance and donor XP are updated atomically.
@@ -800,77 +905,77 @@ Key integration test scenarios:
 - **Aikido** security scanner (optional — used only if free tier is available; otherwise replaced by `npm audit` + Trivy for dependency/vulnerability scanning) wraps all payment and donation API surface calls to detect injection, SSRF, and dependency vulnerabilities.
 - GPS coordinates stored raw in the backend; only **fuzzed coordinates** (±100–200 m jitter) are served to clients.
 - Medical documents are stored in private object storage with signed URL access.
-- JWT tokens expire in 15 minutes; refresh tokens rotate on use.
+- JWT tokens expire in 15 minutes (enforced exactly with no tolerance); refresh tokens rotate on use.
 - All Temporal workflows are idempotent (workflow ID = requestId) to prevent double-charges.
 
 ---
 
 ## Correctness Properties
 
-*A property is a characteristic or behavior that should hold true across all valid executions of a system — essentially, a formal statement about what the system should do. Properties serve as the bridge between human-readable specifications and machine-verifiable correctness guarantees.*
+_A property is a characteristic or behavior that should hold true across all valid executions of a system — essentially, a formal statement about what the system should do. Properties serve as the bridge between human-readable specifications and machine-verifiable correctness guarantees._
 
 ### Property 1: Scan result exclusivity
 
-*For any* scan submission, the Recognition Module SHALL return exactly one of: `no_cat`, `matched`, `confirm_needed`, or `new_cat` — never more than one, never zero on a completed request.
+_For any_ scan submission, the Recognition Module SHALL return exactly one of: `no_cat`, `matched`, `confirm_needed`, or `new_cat` — never more than one, never zero on a completed request.
 
 **Validates: Requirements 3.1, 3.2, 3.3, 4.3, 4.4, 4.5**
 
 ### Property 2: GPS fuzz invariant
 
-*For any* Sighting record written to the database and for any coordinate value returned to a client, the served latitude/longitude SHALL differ from the original raw GPS input by a non-zero offset (GPS_Fuzz applied, never the exact raw value).
+_For any_ Sighting record written to the database and for any coordinate value returned to a client, the served latitude/longitude SHALL differ from the original raw GPS input by a non-zero offset (GPS_Fuzz applied, never the exact raw value).
 
 **Validates: Requirements 5.3, 5.5, 14.2**
 
 ### Property 3: Ownership promotion monotonicity
 
-*For any* user–cat pair, once the Ownership level reaches Lvl1 (≥ 500 XP), subsequent XP accumulation SHALL never cause the level to decrease below 1 during normal operation.
+_For any_ user–cat pair, once the Ownership level reaches Lvl1 (≥ 500 XP), subsequent XP accumulation SHALL never cause the level to decrease below 1 during normal operation.
 
 **Validates: Requirements 6.5, 6.7**
 
 ### Property 4: Wallet balance non-negativity
 
-*For any* sequence of donation or top-up operations on a User account, the walletBalance after each committed transaction SHALL be ≥ 0. A donation whose amount exceeds the current walletBalance SHALL be rejected without modifying the balance.
+_For any_ sequence of donation or top-up operations on a User account, the walletBalance after each committed transaction SHALL be ≥ 0. A donation whose amount exceeds the current walletBalance SHALL be rejected without modifying the balance.
 
 **Validates: Requirements 10.2, 10.3, 10.4, 10.7**
 
 ### Property 5: Discovery–Ownership referential integrity
 
-*For any* Ownership record in the database, a corresponding UserCatDiscovery record with the same (userId, catId) pair SHALL also exist. Promoting a user to Lvl1 SHALL NOT delete or modify the UserCatDiscovery record.
+_For any_ Ownership record in the database, a corresponding UserCatDiscovery record with the same (userId, catId) pair SHALL also exist. Promoting a user to Lvl1 SHALL NOT delete or modify the UserCatDiscovery record.
 
 **Validates: Requirements 6.7, 14.3**
 
 ### Property 6: Temporal workflow idempotence
 
-*For any* MedicalRequest or Donation Temporal workflow re-triggered with an already-used workflowId, the final financial outcome (amount credited, amount debited, reimbursement released) SHALL be identical to the outcome of the original single run — no double charge and no double reimbursement.
+_For any_ MedicalRequest or Donation Temporal workflow re-triggered with an already-used workflowId, the final financial outcome (amount credited, amount debited, reimbursement released) SHALL be identical to the outcome of the original single run — no double charge and no double reimbursement.
 
 **Validates: Requirements 10.5, 14.4**
 
 ### Property 7: Ownership gates chat and medical access
 
-*For any* ChatMessage submission or MedicalRequest submission, the System SHALL accept the request if and only if the submitting User has an Ownership record with level ≥ 1 for the associated Cat. All submissions by non-Owners SHALL be rejected with a 403 error.
+_For any_ ChatMessage submission or MedicalRequest submission, the System SHALL accept the request if and only if the submitting User has an Ownership record with level ≥ 1 for the associated Cat. All submissions by non-Owners SHALL be rejected with a 403 error.
 
 **Validates: Requirements 8.1, 8.2, 9.1, 9.2**
 
 ### Property 8: Embedding dimensionality consistency
 
-*For any* cat image crop passed through MegaDescriptor, the returned embedding vector SHALL have exactly 512 dimensions, and embedding the same crop twice SHALL produce vectors with cosine similarity ≥ 0.99 (deterministic inference).
+_For any_ cat image crop passed through MegaDescriptor, the returned embedding vector SHALL have exactly 512 dimensions, and embedding the same crop twice SHALL produce vectors with cosine similarity ≥ 0.99 (deterministic inference).
 
 **Validates: Requirements 4.1**
 
 ### Property 9: Discovery state controls map and Catpedia visibility
 
-*For any* User–Cat pair where a UserCatDiscovery record does NOT exist, every client response about that Cat (map pin data, Catpedia entry data, tap detail data) SHALL omit the Cat's name, photo, and exact location and SHALL only expose the approximate area. Where a UserCatDiscovery record DOES exist, the full Cat profile data SHALL be available.
+_For any_ User–Cat pair where a UserCatDiscovery record does NOT exist, every client response about that Cat (map pin data, Catpedia entry data, tap detail data) SHALL omit the Cat's name, photo, and exact location and SHALL only expose the approximate area. Where a UserCatDiscovery record DOES exist, the full Cat profile data SHALL be available.
 
 **Validates: Requirements 2.2, 2.3, 2.4, 7.3, 7.4, 7.5**
 
 ### Property 10: XP award correctness
 
-*For any* scan action that discovers a new Cat, exactly 100 XP is awarded to the discoverer for that Cat. For any re-sighting scan (first scan of that cat by that user on a given calendar day), exactly 50 XP is awarded. For any food item donation where the item costs P MYR, the XP awarded = P (capped so daily donation XP per user per cat does not exceed 200). For any completed medical reimbursement, exactly 100 XP is awarded to the requester for that Cat.
+_For any_ scan action that discovers a new Cat, exactly 100 XP is awarded to the discoverer for that Cat. For any re-sighting scan (first scan of that cat by that user on a given calendar day), exactly 50 XP is awarded. For any food item donation where the item costs P MYR, the XP awarded = P (capped so daily donation XP per user per cat does not exceed 200). For any completed medical reimbursement, exactly 100 XP is awarded to the requester for that Cat.
 
 **Validates: Requirements 6.1, 6.2, 6.3, 6.4**
 
 ### Property 11: Notification rate limit
 
-*For any* User and any sliding 1-hour window, the total number of push notifications delivered to that User SHALL NOT exceed 10.
+_For any_ User and any sliding 1-hour window, the total number of push notifications delivered to that User SHALL NOT exceed 10, EXCEPT for ownership milestone notifications which SHALL bypass the rate limit.
 
 **Validates: Requirements 12.5**
