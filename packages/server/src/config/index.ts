@@ -7,7 +7,10 @@ export const config = {
   port: parseInt(process.env.PORT || '3000', 10),
   databaseUrl: process.env.DATABASE_URL || '',
   jwtSecret: process.env.JWT_SECRET || 'dev-secret-change-me',
-  jwtExpiresIn: process.env.JWT_EXPIRES_IN || '7d',
+  /** Access token expiry: exactly 15 minutes, no tolerance */
+  jwtAccessExpiresInSeconds: 15 * 60,
+  /** Refresh token expiry: 7 days */
+  jwtRefreshExpiresInSeconds: 7 * 24 * 60 * 60,
   temporal: {
     address: process.env.TEMPORAL_ADDRESS || 'localhost:7233',
     namespace: process.env.TEMPORAL_NAMESPACE || 'default',
