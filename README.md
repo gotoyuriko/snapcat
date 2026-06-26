@@ -1,4 +1,4 @@
-# CodingKitty
+# CodingKitty Example
 
 A community-driven platform for discovering, tracking, and caring for stray cats. Users can identify cats via AI-powered image recognition, track sightings on a map, donate food, request veterinary care, and chat with other caretakers.
 
@@ -6,11 +6,11 @@ A community-driven platform for discovering, tracking, and caring for stray cats
 
 Monorepo with three packages:
 
-| Package | Description |
-|---------|-------------|
-| `packages/shared` | TypeScript types and interfaces shared across client and server |
+| Package           | Description                                                              |
+| ----------------- | ------------------------------------------------------------------------ |
+| `packages/shared` | TypeScript types and interfaces shared across client and server          |
 | `packages/server` | Node.js + Express API with Prisma ORM, Temporal workflows, and Socket.io |
-| `packages/client` | React Native mobile app with maps, AR feeding, and real-time chat |
+| `packages/client` | React Native mobile app with maps, AR feeding, and real-time chat        |
 
 ## Tech Stack
 
