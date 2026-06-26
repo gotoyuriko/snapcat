@@ -8,7 +8,7 @@ Implement the CodingKitty modular monolith (Node.js/TypeScript backend + React N
 
 ## Tasks
 
-- [ ] 1. Project scaffolding and database schema
+- [x] 1. Project scaffolding and database schema
   - Prerequisites: Docker and Docker Compose installed, Node.js >= 20.
   - Run `npm install` at the monorepo root to install all workspace dependencies.
   - Run `docker compose up -d` at the project root to start PostgreSQL 16 with PostGIS + pgvector (container: `codingkitty-db`, port 5432 mapped to host 5433).
