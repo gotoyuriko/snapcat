@@ -6,8 +6,8 @@ import { Server as SocketIOServer } from 'socket.io';
 import { config } from './config';
 
 import { authRoutes } from './modules/auth/auth.routes';
+import { recognitionRoutes } from './modules/recognition/recognition.routes';
 // TODO: Import remaining route modules
-// import { recognitionRoutes } from './modules/recognition/recognition.routes';
 // import { sightingRoutes } from './modules/sighting/sighting.routes';
 // import { gamificationRoutes } from './modules/gamification/gamification.routes';
 // import { donationRoutes } from './modules/donation/donation.routes';
@@ -34,8 +34,8 @@ app.get('/health', (_req, res) => {
 
 // Mount routes
 app.use('/api/auth', authRoutes);
+app.use('/api/recognition', recognitionRoutes);
 // TODO: Mount remaining routes
-// app.use('/api/recognition', recognitionRoutes);
 // app.use('/api/sighting', sightingRoutes);
 // app.use('/api/gamification', gamificationRoutes);
 // app.use('/api/donation', donationRoutes);

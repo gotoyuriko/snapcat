@@ -1,4 +1,4 @@
-import { RecognitionResult } from '@codingkitty/shared';
+import { OrchestrationResult } from '@codingkitty/shared';
 
 /**
  * Recognition Module
@@ -6,14 +6,12 @@ import { RecognitionResult } from '@codingkitty/shared';
  */
 
 export interface RecognitionModule {
-  /** Process an image and return detection + identification results */
-  recognizeCat(imageBuffer: Buffer): Promise<RecognitionResult>;
-  /** Store a new cat embedding in the vector database */
-  storeEmbedding(catId: string, embedding: number[]): Promise<void>;
-  /** Search for similar embeddings by vector distance */
-  searchSimilar(embedding: number[], threshold: number): Promise<Array<{ catId: string; distance: number }>>;
+  /** Full recognition orchestration: detect → embed → match → record */
+  recognizeCat(photo: Buffer, userGPS: { lat: number; lng: number }, userId: string): Promise<OrchestrationResult>;
+  /** Confirm a borderline match or register as new cat */
+  confirmMatch(userId: string, catId: string | 'new', embedding: number[], rawGPS: { lat: number; lng: number }, photoUrl: string): Promise<OrchestrationResult>;
 }
 
-export { RecognitionService } from './recognition.service';
+export { RecognitionService, RawGPS } from './recognition.service';
 export { RecognitionController } from './recognition.controller';
 export { recognitionRoutes } from './recognition.routes';
