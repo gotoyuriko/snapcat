@@ -19,4 +19,12 @@ export const config = {
     url: process.env.REDIS_URL || 'redis://localhost:6379',
   },
   gpsFuzzRadiusMeters: parseInt(process.env.GPS_FUZZ_RADIUS_METERS || '200', 10),
+  yolo: {
+    apiUrl: process.env.YOLO_API_URL || 'https://api.ultralytics.com/v1/predict',
+    apiKey: process.env.YOLO_API_KEY || '',
+  },
+  megadescriptor: {
+    apiUrl: process.env.MEGADESCRIPTOR_API_URL || 'https://api-inference.huggingface.co/models/wildlife-tools/megadescriptor',
+    apiKey: process.env.MEGADESCRIPTOR_API_KEY || '',
+  },
 } as const;
