@@ -54,7 +54,7 @@ Implement the CodingKitty modular monolith (Node.js/TypeScript backend + React N
     - For matched/new: call Sighting Module, call Gamification Module.
     - Return exactly one discriminated union result type.
     - _Requirements: 3.1, 3.2, 4.3, 4.4, 4.5_
-  - [ ]\* 4.6 Write property test: for any similarity score, `recognizeCat` returns exactly one of the four result types.
+  - [x] 4.6 Write property test: for any similarity score, `recognizeCat` returns exactly one of the four result types.
     - **Property 1: Scan result exclusivity**
     - **Validates: Requirements 3.1, 3.2, 3.3, 4.3, 4.4, 4.5**
   - [x] 4.7 Implement `POST /scan` and `POST /scan/confirm` API endpoints wired to the orchestrator.
