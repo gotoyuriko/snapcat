@@ -70,7 +70,7 @@ Implement the CodingKitty modular monolith (Node.js/TypeScript backend + React N
   - [x] 5.3 Implement `GET /map` endpoint: returns cat pins (fuzzed coords only) filtered by user's UserCatDiscovery set.
     - Discovered cats: return full pin data. Undiscovered: return silhouette with approximate area only.
     - _Requirements: 2.1, 2.2, 2.3, 2.4_
-  - [ ]\* 5.4 Write property test: for any userId and cat list, every cat not in the user's UserCatDiscovery set is returned as a silhouette without name, photo, or exact coordinates.
+  - [x] 5.4 Write property test: for any userId and cat list, every cat not in the user's UserCatDiscovery set is returned as a silhouette without name, photo, or exact coordinates.
     - **Property 9: Discovery state controls map and Catpedia visibility**
     - **Validates: Requirements 2.2, 2.3, 2.4, 7.3, 7.4, 7.5**
 
