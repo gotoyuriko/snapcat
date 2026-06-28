@@ -1,0 +1,11 @@
+# Default: normalize to LF in the repo, let Git handle checkout
+* text=auto eol=lf
+
+# Force LF on files that break with CRLF
+*.sh text eol=lf
+
+# Binary files — never touch
+*.png binary
+*.jpg binary
+*.glb binary
+*.fbx binary
