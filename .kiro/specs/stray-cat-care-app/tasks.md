@@ -108,14 +108,14 @@ Implement the CodingKitty modular monolith (Node.js/TypeScript backend + React N
     - **Property 9: Discovery state controls Catpedia visibility**
     - **Validates: Requirements 7.3, 7.4, 7.5**
 
-- [ ] 9. Community Chat Module
-  - [~] 9.1 Implement WebSocket (Socket.io) channel per cat, gated by Lvl1+ ownership check.
+- [x] 9. Community Chat Module
+  - [x] 9.1 Implement WebSocket (Socket.io) channel per cat, gated by Lvl1+ ownership check.
     - On connect: verify Ownership.level >= 1; reject with 403 if not.
     - _Requirements: 8.1, 8.2_
-  - [~] 9.2 Implement `POST /cats/:catId/messages` and `GET /cats/:catId/messages` REST fallbacks.
+  - [x] 9.2 Implement `POST /cats/:catId/messages` and `GET /cats/:catId/messages` REST fallbacks.
     - Same ownership gate; persist ChatMessage records.
     - _Requirements: 8.1, 8.2, 8.3_
-  - [ ]\* 9.3 Write property test: for any ChatMessage submission, the message is accepted if and only if the sender has Ownership.level >= 1 for the cat; all other submissions return 403.
+  - [x] 9.3 Write property test: for any ChatMessage submission, the message is accepted if and only if the sender has Ownership.level >= 1 for the cat; all other submissions return 403.
     - **Property 7: Ownership gates chat and medical access**
     - **Validates: Requirements 8.1, 8.2**
 
