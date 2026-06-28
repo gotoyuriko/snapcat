@@ -1,17 +1,9 @@
 /**
  * Catpedia Module
- * Encyclopedia-style cat breed and care information.
- * Serves educational content about cat breeds, health tips, and care guides.
+ * Provides the Catpedia encyclopedia view listing all registered cats,
+ * filtered by discovery/ownership status relative to the requesting user.
  */
 
-export interface CatpediaEntry {
-  id: string;
-  breed: string;
-  description: string;
-  characteristics: string[];
-  careGuide: string;
-  imageUrl: string;
-}
-
 export { CatpediaController } from './catpedia.controller';
+export { CatpediaService } from './catpedia.service';
 export { catpediaRoutes } from './catpedia.routes';

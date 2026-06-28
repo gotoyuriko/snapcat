@@ -9,13 +9,13 @@ import { authRoutes } from './modules/auth/auth.routes';
 import { recognitionRoutes } from './modules/recognition/recognition.routes';
 import { sightingRoutes } from './modules/sighting/sighting.routes';
 import { mapRoutes } from './modules/sighting/map.routes';
+import { catpediaRoutes } from './modules/catpedia/catpedia.routes';
 // TODO: Import remaining route modules
 // import { gamificationRoutes } from './modules/gamification/gamification.routes';
 // import { donationRoutes } from './modules/donation/donation.routes';
 // import { medicalRoutes } from './modules/medical/medical.routes';
 // import { chatRoutes } from './modules/chat/chat.routes';
 // import { staffVerificationRoutes } from './modules/staff-verification/staff-verification.routes';
-// import { catpediaRoutes } from './modules/catpedia/catpedia.routes';
 
 const app = express();
 const httpServer = createServer(app);
@@ -38,13 +38,13 @@ app.use('/api/auth', authRoutes);
 app.use('/api/recognition', recognitionRoutes);
 app.use('/api/sighting', sightingRoutes);
 app.use('/api/map', mapRoutes);
+app.use('/api/catpedia', catpediaRoutes);
 // TODO: Mount remaining routes
 // app.use('/api/gamification', gamificationRoutes);
 // app.use('/api/donation', donationRoutes);
 // app.use('/api/medical', medicalRoutes);
 // app.use('/api/chat', chatRoutes);
 // app.use('/api/staff-verification', staffVerificationRoutes);
-// app.use('/api/catpedia', catpediaRoutes);
 
 // Socket.io setup
 // TODO: Initialize chat gateway with io instance
