@@ -23,7 +23,7 @@ Implement the CodingKitty modular monolith (Node.js/TypeScript backend + React N
   - [x] 2.1 Implement register, login, refresh, logout endpoints using JWT (15 min access enforced exactly with no tolerance / rotating refresh).
     - Passwords hashed with bcrypt.
     - _Requirements: 15.6_
-  - [ ]\* 2.2 Write unit tests for token generation, refresh rotation, and expiry edge cases.
+  - [x] 2.2 Write unit tests for token generation, refresh rotation, and expiry edge cases.
     - _Requirements: 14.6_
 
 - [x] 3. GPS Fuzz utility
