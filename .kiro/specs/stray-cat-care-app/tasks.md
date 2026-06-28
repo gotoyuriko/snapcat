@@ -64,7 +64,7 @@ Implement the CodingKitty modular monolith (Node.js/TypeScript backend + React N
   - [x] 5.1 Implement `appendSighting(catId, userId, rawGPS, photoUrl, type)`:
     - Applies `fuzzCoordinates` before writing; updates `Cat.lastKnownApproxLocation` with fuzzed coords.
     - _Requirements: 5.1, 5.2, 5.4, 5.5_
-  - [ ]\* 5.2 Write property test: for any sighting created by `appendSighting`, the stored coordinates differ from the raw GPS input (never raw).
+  - [x] 5.2 Write property test: for any sighting created by `appendSighting`, the stored coordinates differ from the raw GPS input (never raw).
     - **Property 2: GPS fuzz invariant (sighting layer)**
     - **Validates: Requirements 5.3, 5.5, 14.2**
   - [x] 5.3 Implement `GET /map` endpoint: returns cat pins (fuzzed coords only) filtered by user's UserCatDiscovery set.
