@@ -119,11 +119,11 @@ Implement the CodingKitty modular monolith (Node.js/TypeScript backend + React N
     - **Property 7: Ownership gates chat and medical access**
     - **Validates: Requirements 8.1, 8.2**
 
-- [ ] 10. Partner & Staff-Verification Module
-  - [~] 10.1 Implement staff-only CRUD for Partner records: create, verify (set verified=true), revoke (set verified=false, immediate effect).
+- [x] 10. Partner & Staff-Verification Module
+  - [x] 10.1 Implement staff-only CRUD for Partner records: create, verify (set verified=true), revoke (set verified=false, immediate effect).
     - Staff role enforced via JWT claim.
     - _Requirements: 13.1, 13.2, 13.3, 13.4_
-  - [ ]\* 10.2 Write unit tests for partner verification and revocation, including assignment blocking.
+  - [x] 10.2 Write unit tests for partner verification and revocation, including assignment blocking.
     - _Requirements: 13.3, 13.4_
 
 - [ ] 11. Medical Module & Temporal Workflow

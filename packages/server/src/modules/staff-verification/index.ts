@@ -1,16 +1,10 @@
 /**
  * Staff Verification Module
- * Handles partner organization verification and staff role management.
+ * Handles staff-only CRUD for Partner records:
+ * - Create partners (verified=false by default)
+ * - Verify partners (set verified=true, makes them selectable for MedicalRequests)
+ * - Revoke partners (set verified=false, immediate effect — blocks new assignments)
  */
-
-export interface StaffVerificationModule {
-  /** Submit partner verification request */
-  submitVerification(partnerId: string, documents: string[]): Promise<void>;
-  /** Approve a partner (admin action) */
-  approvePartner(partnerId: string): Promise<void>;
-  /** Reject a partner verification */
-  rejectPartner(partnerId: string, reason: string): Promise<void>;
-}
 
 export { StaffVerificationService } from './staff-verification.service';
 export { StaffVerificationController } from './staff-verification.controller';
