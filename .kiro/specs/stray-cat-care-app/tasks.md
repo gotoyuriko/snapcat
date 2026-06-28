@@ -99,12 +99,12 @@ Implement the CodingKitty modular monolith (Node.js/TypeScript backend + React N
   - Ensure all tests pass. Verify scan → recognition → sighting → XP → ownership promotion end-to-end with mocked AI services.
   - Ask the user if questions arise.
 
-- [ ] 8. Catpedia Module
-  - [~] 8.1 Implement `GET /catpedia` endpoint with filter query param (`all` | `discovered` | `owned`):
+- [x] 8. Catpedia Module
+  - [x] 8.1 Implement `GET /catpedia` endpoint with filter query param (`all` | `discovered` | `owned`):
     - Returns cats matching filter for the requesting user.
     - Undiscovered cats: silhouette only (no name, photo).
     - _Requirements: 7.1, 7.2, 7.3, 7.4, 7.5_
-  - [ ]\* 8.2 Write property test: for any Catpedia response for a given userId, every cat in the response that is not in the user's UserCatDiscovery set contains no name or photo field.
+  - [x] 8.2 Write property test: for any Catpedia response for a given userId, every cat in the response that is not in the user's UserCatDiscovery set contains no name or photo field.
     - **Property 9: Discovery state controls Catpedia visibility**
     - **Validates: Requirements 7.3, 7.4, 7.5**
 
