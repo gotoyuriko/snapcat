@@ -91,7 +91,7 @@ Implement the CodingKitty modular monolith (Node.js/TypeScript backend + React N
   - [x] 6.4 Write property test: for any user–cat pair, once Ownership exists, a corresponding UserCatDiscovery record also exists.
     - **Property 5: Discovery–Ownership referential integrity**
     - **Validates: Requirements 6.10, 14.3**
-  - [ ]\* 6.5 Write property test: for any sequence of XP changes, the Ownership level correctly reflects the current cumulative XP against the defined thresholds (monotone within a session when XP only increases).
+  - [x] 6.5 Write property test: for any sequence of XP changes, the Ownership level correctly reflects the current cumulative XP against the defined thresholds (monotone within a session when XP only increases).
     - **Property 3: Ownership promotion monotonicity (and demotion correctness)**
     - **Validates: Requirements 6.5, 6.8**
 
