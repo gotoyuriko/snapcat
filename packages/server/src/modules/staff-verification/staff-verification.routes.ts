@@ -1,14 +1,26 @@
 import { Router } from 'express';
+import { authMiddleware } from '../../middleware/auth';
+import { staffGuard } from '../../middleware/staffGuard';
+import { StaffVerificationController } from './staff-verification.controller';
 
-/**
- * TODO: Wire up staff verification routes
- * POST /submit        — Submit partner verification documents
- * POST /:id/approve   — Approve partner (admin only)
- * POST /:id/reject    — Reject partner (admin only)
- */
+const controller = new StaffVerificationController();
 
 export const staffVerificationRoutes = Router();
 
-// staffVerificationRoutes.post('/submit', authMiddleware, controller.submit);
-// staffVerificationRoutes.post('/:id/approve', authMiddleware, adminGuard, controller.approve);
-// staffVerificationRoutes.post('/:id/reject', authMiddleware, adminGuard, controller.reject);
+// All routes require authentication + staff role
+staffVerificationRoutes.use(authMiddleware, staffGuard);
+
+// POST /api/staff/partners — Create a new partner
+staffVerificationRoutes.post('/partners', (req, res) => controller.createPartner(req, res));
+
+// GET /api/staff/partners — List partners (optional ?verified=true/false)
+staffVerificationRoutes.get('/partners', (req, res) => controller.listPartners(req, res));
+
+// GET /api/staff/partners/:id — Get single partner
+staffVerificationRoutes.get('/partners/:id', (req, res) => controller.getPartner(req, res));
+
+// PATCH /api/staff/partners/:id/verify — Set verified=true
+staffVerificationRoutes.patch('/partners/:id/verify', (req, res) => controller.verifyPartner(req, res));
+
+// PATCH /api/staff/partners/:id/revoke — Set verified=false (immediate effect)
+staffVerificationRoutes.patch('/partners/:id/revoke', (req, res) => controller.revokePartner(req, res));
