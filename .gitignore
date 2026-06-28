@@ -11,9 +11,10 @@ build/
 .env.local
 .env.*.local
 
-# IDE
+# IDE / AI tools
 .vscode/
 .idea/
+.claude/
 *.swp
 *.swo
 
@@ -21,8 +22,7 @@ build/
 .DS_Store
 Thumbs.db
 
-# Prisma
-packages/server/prisma/migrations/
+# Prisma (migrations are committed for team reproducibility)
 
 # React Native
 packages/client/ios/Pods/
