@@ -23,14 +23,14 @@ Implement the CodingKitty modular monolith (Node.js/TypeScript backend + React N
   - [x] 2.1 Implement register, login, refresh, logout endpoints using JWT (15 min access enforced exactly with no tolerance / rotating refresh).
     - Passwords hashed with bcrypt.
     - _Requirements: 15.6_
-  - [ ]\* 2.2 Write unit tests for token generation, refresh rotation, and expiry edge cases.
+  - [x] 2.2 Write unit tests for token generation, refresh rotation, and expiry edge cases.
     - _Requirements: 14.6_
 
 - [x] 3. GPS Fuzz utility
   - [x] 3.1 Implement `fuzzCoordinates(lat, lng): { fuzzedLat, fuzzedLng }` that applies a random ±100–200 m offset.
     - Return `{ fuzzedLat: null, fuzzedLng: null }` if the function throws.
     - _Requirements: 5.3, 5.4, 14.2_
-  - [ ]\* 3.2 Write property test: for any raw (lat, lng) input, the fuzzed output differs from the input by a non-zero offset.
+  - [x] 3.2 Write property test: for any raw (lat, lng) input, the fuzzed output differs from the input by a non-zero offset.
     - **Property 2: GPS fuzz invariant**
     - **Validates: Requirements 5.3, 5.5, 14.2**
 
@@ -41,7 +41,7 @@ Implement the CodingKitty modular monolith (Node.js/TypeScript backend + React N
   - [x] 4.2 Set up MegaDescriptor (wildlife-tools) service client: `embed(croppedBuffer): Float32Array[512]`.
     - Call HuggingFace inference endpoint; validate returned vector length = 512.
     - _Requirements: 4.1_
-  - [ ]\* 4.3 Write property test: for any image buffer passed to `embed()`, the returned vector has exactly 512 dimensions.
+  - [x] 4.3 Write property test: for any image buffer passed to `embed()`, the returned vector has exactly 512 dimensions.
     - **Property 8: Embedding dimensionality consistency**
     - **Validates: Requirements 4.1**
   - [x] 4.4 Implement pgvector nearest-neighbour query: `findNearestCat(embedding): { catId, similarity }[]`.
@@ -54,7 +54,7 @@ Implement the CodingKitty modular monolith (Node.js/TypeScript backend + React N
     - For matched/new: call Sighting Module, call Gamification Module.
     - Return exactly one discriminated union result type.
     - _Requirements: 3.1, 3.2, 4.3, 4.4, 4.5_
-  - [ ]\* 4.6 Write property test: for any similarity score, `recognizeCat` returns exactly one of the four result types.
+  - [x] 4.6 Write property test: for any similarity score, `recognizeCat` returns exactly one of the four result types.
     - **Property 1: Scan result exclusivity**
     - **Validates: Requirements 3.1, 3.2, 3.3, 4.3, 4.4, 4.5**
   - [x] 4.7 Implement `POST /scan` and `POST /scan/confirm` API endpoints wired to the orchestrator.
@@ -64,13 +64,13 @@ Implement the CodingKitty modular monolith (Node.js/TypeScript backend + React N
   - [x] 5.1 Implement `appendSighting(catId, userId, rawGPS, photoUrl, type)`:
     - Applies `fuzzCoordinates` before writing; updates `Cat.lastKnownApproxLocation` with fuzzed coords.
     - _Requirements: 5.1, 5.2, 5.4, 5.5_
-  - [ ]\* 5.2 Write property test: for any sighting created by `appendSighting`, the stored coordinates differ from the raw GPS input (never raw).
+  - [x] 5.2 Write property test: for any sighting created by `appendSighting`, the stored coordinates differ from the raw GPS input (never raw).
     - **Property 2: GPS fuzz invariant (sighting layer)**
     - **Validates: Requirements 5.3, 5.5, 14.2**
   - [x] 5.3 Implement `GET /map` endpoint: returns cat pins (fuzzed coords only) filtered by user's UserCatDiscovery set.
     - Discovered cats: return full pin data. Undiscovered: return silhouette with approximate area only.
     - _Requirements: 2.1, 2.2, 2.3, 2.4_
-  - [ ]\* 5.4 Write property test: for any userId and cat list, every cat not in the user's UserCatDiscovery set is returned as a silhouette without name, photo, or exact coordinates.
+  - [x] 5.4 Write property test: for any userId and cat list, every cat not in the user's UserCatDiscovery set is returned as a silhouette without name, photo, or exact coordinates.
     - **Property 9: Discovery state controls map and Catpedia visibility**
     - **Validates: Requirements 2.2, 2.3, 2.4, 7.3, 7.4, 7.5**
 
@@ -79,7 +79,7 @@ Implement the CodingKitty modular monolith (Node.js/TypeScript backend + React N
     - Award XP per design table; enforce daily donation XP cap of 200/user/cat.
     - Update both global User.xp and per-cat Ownership/UserCatDiscovery XP.
     - _Requirements: 6.1, 6.2, 6.3, 6.4_
-  - [ ]\* 6.2 Write property test: for any sequence of donation actions on a given day, total XP awarded from donations does not exceed 200 XP for that user–cat pair.
+  - [x] 6.2 Write property test: for any sequence of donation actions on a given day, total XP awarded from donations does not exceed 200 XP for that user–cat pair.
     - **Property 10: XP award correctness**
     - **Validates: Requirements 6.1, 6.2, 6.3, 6.4**
   - [x] 6.3 Implement ownership level promotion logic:
@@ -88,14 +88,14 @@ Implement the CodingKitty modular monolith (Node.js/TypeScript backend + React N
     - Verify UserCatDiscovery record exists before creating Ownership.
     - Send push notification only after both promotion and ownership record creation are committed to DB.
     - _Requirements: 6.5, 6.6, 6.7, 6.8, 6.9, 6.10, 15.3_
-  - [ ]\* 6.4 Write property test: for any user–cat pair, once Ownership exists, a corresponding UserCatDiscovery record also exists.
+  - [x] 6.4 Write property test: for any user–cat pair, once Ownership exists, a corresponding UserCatDiscovery record also exists.
     - **Property 5: Discovery–Ownership referential integrity**
     - **Validates: Requirements 6.10, 14.3**
-  - [ ]\* 6.5 Write property test: for any sequence of XP changes, the Ownership level correctly reflects the current cumulative XP against the defined thresholds (monotone within a session when XP only increases).
+  - [x] 6.5 Write property test: for any sequence of XP changes, the Ownership level correctly reflects the current cumulative XP against the defined thresholds (monotone within a session when XP only increases).
     - **Property 3: Ownership promotion monotonicity (and demotion correctness)**
     - **Validates: Requirements 6.5, 6.8**
 
-- [~] 7. Checkpoint — Core pipeline green
+- [x] 7. Checkpoint — Core pipeline green
   - Ensure all tests pass. Verify scan → recognition → sighting → XP → ownership promotion end-to-end with mocked AI services.
   - Ask the user if questions arise.
 
