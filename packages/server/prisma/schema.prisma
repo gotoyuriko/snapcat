@@ -31,6 +31,7 @@ model User {
   inventory       UserInventory[]
   discoveredCats  Cat[]            @relation("FirstDiscoverer")
   refreshTokens   RefreshToken[]
+  donationXpLogs  DonationXpLog[]
 }
 
 model RefreshToken {
@@ -67,6 +68,7 @@ model Cat {
   donations       Donation[]
   medicalRequests MedicalRequest[]
   chatMessages    ChatMessage[]
+  donationXpLogs  DonationXpLog[]
 
   // Indexes
   @@index([lastKnownApproxLat, lastKnownApproxLng], name: "idx_cat_approx_location")
@@ -203,4 +205,19 @@ model UserInventory {
 
   // Compound primary key
   @@id([userId, foodItemId])
+}
+
+model DonationXpLog {
+  id        String   @id @default(uuid())
+  userId    String
+  catId     String
+  xpAwarded Int
+  createdAt DateTime @default(now())
+
+  // Relations
+  user User @relation(fields: [userId], references: [id])
+  cat  Cat  @relation(fields: [catId], references: [id])
+
+  // Index for daily cap queries
+  @@index([userId, catId, createdAt])
 }

@@ -74,15 +74,15 @@ Implement the CodingKitty modular monolith (Node.js/TypeScript backend + React N
     - **Property 9: Discovery state controls map and Catpedia visibility**
     - **Validates: Requirements 2.2, 2.3, 2.4, 7.3, 7.4, 7.5**
 
-- [ ] 6. Gamification Module
-  - [~] 6.1 Implement `recordAction(userId, catId, actionType)`:
+- [x] 6. Gamification Module
+  - [x] 6.1 Implement `recordAction(userId, catId, actionType)`:
     - Award XP per design table; enforce daily donation XP cap of 200/user/cat.
     - Update both global User.xp and per-cat Ownership/UserCatDiscovery XP.
     - _Requirements: 6.1, 6.2, 6.3, 6.4_
   - [ ]\* 6.2 Write property test: for any sequence of donation actions on a given day, total XP awarded from donations does not exceed 200 XP for that user–cat pair.
     - **Property 10: XP award correctness**
     - **Validates: Requirements 6.1, 6.2, 6.3, 6.4**
-  - [~] 6.3 Implement ownership level promotion logic:
+  - [x] 6.3 Implement ownership level promotion logic:
     - After each XP update, evaluate cumulative per-cat XP against level thresholds.
     - Promote or demote level accordingly; create Ownership record at Lvl1 if absent.
     - Verify UserCatDiscovery record exists before creating Ownership.
