@@ -30,7 +30,7 @@ Implement the CodingKitty modular monolith (Node.js/TypeScript backend + React N
   - [x] 3.1 Implement `fuzzCoordinates(lat, lng): { fuzzedLat, fuzzedLng }` that applies a random ±100–200 m offset.
     - Return `{ fuzzedLat: null, fuzzedLng: null }` if the function throws.
     - _Requirements: 5.3, 5.4, 14.2_
-  - [ ]\* 3.2 Write property test: for any raw (lat, lng) input, the fuzzed output differs from the input by a non-zero offset.
+  - [x] 3.2 Write property test: for any raw (lat, lng) input, the fuzzed output differs from the input by a non-zero offset.
     - **Property 2: GPS fuzz invariant**
     - **Validates: Requirements 5.3, 5.5, 14.2**
 
