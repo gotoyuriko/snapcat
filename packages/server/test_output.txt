@@ -1,0 +1,35 @@
+﻿node.exe : PASS src/modules/recognition/__tests__/recognition.service.test.ts 
+(14.045 s)
+At line:1 char:1
++ & "C:\Program Files\nodejs/node.exe" "C:\Program Files\nodejs/node_mo ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (PASS src/module...t.ts (14.045 s):Strin 
+   g) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+PASS src/modules/recognition/__tests__/recognition.controller.test.ts (14.952 s)
+PASS src/modules/auth/__tests__/auth.service.test.ts (15.102 s)
+PASS src/modules/gamification/__tests__/gamification.service.test.ts (15.741 s)
+PASS src/modules/recognition/__tests__/megadescriptor.client.test.ts (15.775 s)
+PASS src/modules/recognition/__tests__/vector.service.test.ts (15.946 s)
+PASS src/modules/sighting/__tests__/map.controller.test.ts
+PASS src/modules/recognition/__tests__/yolo.client.test.ts (16.111 s)
+PASS src/modules/sighting/__tests__/sighting.fuzz.property.test.ts (16.376 s)
+PASS src/modules/sighting/__tests__/gps-fuzz.property.test.ts (16.558 s)
+PASS src/modules/recognition/__tests__/megadescriptor.client.property.test.ts 
+(16.523 s)
+PASS src/modules/recognition/__tests__/recognizeCat.property.test.ts (16.724 s)
+PASS src/modules/gamification/__tests__/gamification.xp-cap.property.test.ts (16.733 
+s)
+PASS 
+src/modules/gamification/__tests__/gamification.discovery-ownership.property.test.ts 
+(16.709 s)
+PASS src/modules/sighting/__tests__/map.discovery.property.test.ts (16.986 s)
+PASS src/modules/gamification/__tests__/gamification.promotion-monotonicity.property.
+test.ts (17.162 s)
+
+Test Suites: 16 passed, 16 total
+Tests:       135 passed, 135 total
+Snapshots:   0 total
+Time:        19.927 s
+Ran all test suites.

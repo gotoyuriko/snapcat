@@ -95,7 +95,7 @@ Implement the CodingKitty modular monolith (Node.js/TypeScript backend + React N
     - **Property 3: Ownership promotion monotonicity (and demotion correctness)**
     - **Validates: Requirements 6.5, 6.8**
 
-- [~] 7. Checkpoint — Core pipeline green
+- [x] 7. Checkpoint — Core pipeline green
   - Ensure all tests pass. Verify scan → recognition → sighting → XP → ownership promotion end-to-end with mocked AI services.
   - Ask the user if questions arise.
 
