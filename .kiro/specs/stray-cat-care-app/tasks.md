@@ -79,7 +79,7 @@ Implement the CodingKitty modular monolith (Node.js/TypeScript backend + React N
     - Award XP per design table; enforce daily donation XP cap of 200/user/cat.
     - Update both global User.xp and per-cat Ownership/UserCatDiscovery XP.
     - _Requirements: 6.1, 6.2, 6.3, 6.4_
-  - [ ]\* 6.2 Write property test: for any sequence of donation actions on a given day, total XP awarded from donations does not exceed 200 XP for that user–cat pair.
+  - [x] 6.2 Write property test: for any sequence of donation actions on a given day, total XP awarded from donations does not exceed 200 XP for that user–cat pair.
     - **Property 10: XP award correctness**
     - **Validates: Requirements 6.1, 6.2, 6.3, 6.4**
   - [x] 6.3 Implement ownership level promotion logic:
