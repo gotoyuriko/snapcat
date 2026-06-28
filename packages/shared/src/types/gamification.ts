@@ -1,18 +1,13 @@
-/** Actions that award XP in the gamification system */
+/** Actions that award XP in the gamification system (per design doc) */
 export type GamificationAction =
-  | 'first_discovery'
-  | 'sighting_report'
+  | 'discover_new'
+  | 'scan'
   | 'donation'
-  | 'medical_request'
-  | 'chat_message'
-  | 'daily_login'
-  | 'streak_bonus';
+  | 'medical_reimbursed';
 
 /** Result of applying an XP-awarding action */
 export interface XPResult {
-  action: GamificationAction;
   xpAwarded: number;
-  newTotalXp: number;
-  levelUp: boolean;
   newLevel: number;
+  levelUp: boolean;
 }
