@@ -116,7 +116,7 @@ Implement the CodingKitty modular monolith (Node.js/TypeScript backend + React N
     - Same ownership gate; persist ChatMessage records.
     - _Requirements: 8.1, 8.2, 8.3_
   - [x] 9.3 Write property test: for any ChatMessage submission, the message is accepted if and only if the sender has Ownership.level >= 1 for the cat; all other submissions return 403.
-    - **Property 7: Ownership gates chat and medical access**
+    - **Property 7a: Ownership gates chat access**
     - **Validates: Requirements 8.1, 8.2**
 
 - [x] 10. Partner & Staff-Verification Module
@@ -126,22 +126,22 @@ Implement the CodingKitty modular monolith (Node.js/TypeScript backend + React N
   - [x] 10.2 Write unit tests for partner verification and revocation, including assignment blocking.
     - _Requirements: 13.3, 13.4_
 
-- [ ] 11. Medical Module & Temporal Workflow
-  - [~] 11.1 Implement `POST /medical-requests`:
-    - Ownership gate: reject with 403 if user is not Lvl1+ for the cat.
+- [x] 11. Medical Module & Temporal Workflow
+  - [x] 11.1 Implement `POST /medical-requests`:
+    - Ownership gate: reject with 403 if user is not Lvl7+ for the cat.
     - Upload supporting documents to object storage; store signed URLs.
     - Create MedicalRequest record with status "pending".
     - _Requirements: 9.1, 9.2, 9.9_
-  - [ ]\* 11.2 Write property test: for any MedicalRequest submission, the request is accepted if and only if the requester has Ownership.level >= 1 for the cat; all others return 403.
-    - **Property 7: Ownership gates medical access**
+  - [x] 11.2 Write property test: for any MedicalRequest submission, the request is accepted if and only if the requester has Ownership.level >= 7 for the cat; all others return 403.
+    - **Property 7b: Ownership gates medical access**
     - **Validates: Requirements 9.1, 9.2**
-  - [~] 11.3 Implement Temporal `MedicalReimbursementWorkflow`:
+  - [x] 11.3 Implement Temporal `MedicalReimbursementWorkflow`:
     - Steps: verifyRequest (Staff-Verification) → notifyPartner → awaitServiceCompletion (7-day timeout) → verifyInvoice → releaseReimbursement / reject.
     - Allow status transition from "rejected" to "reimbursed" when valid documents are submitted after a prior documentation rejection.
     - Use workflowId = requestId for idempotence.
     - Resume from last checkpoint on retry (Temporal handles this via event sourcing).
     - _Requirements: 9.3, 9.4, 9.5, 9.6, 9.7, 9.8, 15.4_
-  - [ ]\* 11.4 Write property test: re-running the `MedicalReimbursementWorkflow` with the same workflowId produces the same terminal status and financial amounts.
+  - [x] 11.4 Write property test: re-running the `MedicalReimbursementWorkflow` with the same workflowId produces the same terminal status and financial amounts.
     - **Property 6: Temporal workflow idempotence**
     - **Validates: Requirements 9.1, 14.4**
 

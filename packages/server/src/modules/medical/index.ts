@@ -19,3 +19,4 @@ export interface MedicalModule {
 export { MedicalService } from './medical.service';
 export { MedicalController } from './medical.controller';
 export { medicalRoutes } from './medical.routes';
+export { DocumentStorageService } from './document-storage.service';
