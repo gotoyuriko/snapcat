@@ -41,7 +41,7 @@ Implement the CodingKitty modular monolith (Node.js/TypeScript backend + React N
   - [x] 4.2 Set up MegaDescriptor (wildlife-tools) service client: `embed(croppedBuffer): Float32Array[512]`.
     - Call HuggingFace inference endpoint; validate returned vector length = 512.
     - _Requirements: 4.1_
-  - [ ]\* 4.3 Write property test: for any image buffer passed to `embed()`, the returned vector has exactly 512 dimensions.
+  - [x] 4.3 Write property test: for any image buffer passed to `embed()`, the returned vector has exactly 512 dimensions.
     - **Property 8: Embedding dimensionality consistency**
     - **Validates: Requirements 4.1**
   - [x] 4.4 Implement pgvector nearest-neighbour query: `findNearestCat(embedding): { catId, similarity }[]`.
