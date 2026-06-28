@@ -60,14 +60,14 @@ Implement the CodingKitty modular monolith (Node.js/TypeScript backend + React N
   - [x] 4.7 Implement `POST /scan` and `POST /scan/confirm` API endpoints wired to the orchestrator.
     - _Requirements: 3.1, 4.6, 4.7_
 
-- [ ] 5. Sighting / Location Module
-  - [~] 5.1 Implement `appendSighting(catId, userId, rawGPS, photoUrl, type)`:
+- [x] 5. Sighting / Location Module
+  - [x] 5.1 Implement `appendSighting(catId, userId, rawGPS, photoUrl, type)`:
     - Applies `fuzzCoordinates` before writing; updates `Cat.lastKnownApproxLocation` with fuzzed coords.
     - _Requirements: 5.1, 5.2, 5.4, 5.5_
   - [ ]\* 5.2 Write property test: for any sighting created by `appendSighting`, the stored coordinates differ from the raw GPS input (never raw).
     - **Property 2: GPS fuzz invariant (sighting layer)**
     - **Validates: Requirements 5.3, 5.5, 14.2**
-  - [~] 5.3 Implement `GET /map` endpoint: returns cat pins (fuzzed coords only) filtered by user's UserCatDiscovery set.
+  - [x] 5.3 Implement `GET /map` endpoint: returns cat pins (fuzzed coords only) filtered by user's UserCatDiscovery set.
     - Discovered cats: return full pin data. Undiscovered: return silhouette with approximate area only.
     - _Requirements: 2.1, 2.2, 2.3, 2.4_
   - [ ]\* 5.4 Write property test: for any userId and cat list, every cat not in the user's UserCatDiscovery set is returned as a silhouette without name, photo, or exact coordinates.
