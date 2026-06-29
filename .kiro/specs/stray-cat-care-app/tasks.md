@@ -195,30 +195,30 @@ Implement the CodingKitty modular monolith (Node.js/TypeScript backend + React N
     - Capture photo → `POST /scan` → handle no_cat (prompt retry), confirm_needed (show dialog), matched/new_cat (reveal or register flow).
     - _Requirements: 3.1, 3.2, 3.3, 4.3, 4.4, 4.5, 4.6, 4.7_
 
-- [ ] 16. React Native Client — Cat Profile, Catpedia, Chat, Donation
-  - [~] 16.1 Implement Cat profile screen:
+- [x] 16. React Native Client — Cat Profile, Catpedia, Chat, Donation
+  - [x] 16.1 Implement Cat profile screen:
     - Show name, photo, ownership level, XP progress bar (accumulated XP always visible), sighting history.
     - Show "Feed Cat" button for discovered cats; show "Request Medical/Grooming" for Lvl7+ owners (greyed out and locked with "Available after Level 7" for lower levels).
     - Show Owner Leaderboard: ranked list of Lvl1+ owners by per-cat XP; display "No owners yet" when empty.
     - Only show full profile to users who have discovered the cat; otherwise show silhouette + approximate area (display-only restriction).
     - _Requirements: 6.5, 6.7, 8.1, 9.1, 9.3, 14.1, 14.2, 14.3, 14.4, 14.5, 14.6, 14.7, 14.8_
-  - [~] 16.6 Implement `GET /cats/:catId/leaderboard` API endpoint:
+  - [x] 16.6 Implement `GET /cats/:catId/leaderboard` API endpoint:
     - Returns Owner entries for the cat ranked by cumulative per-cat XP, with display name, level, XP, and rank.
     - Return empty list with "No owners yet" message when no Lvl1+ Owners exist.
     - Remove Owners who have lost discovery status (reverted to UNDISCOVERED) from the leaderboard.
     - Gated: requester must have a UserCatDiscovery record for the cat (Lvl0+).
     - _Requirements: 14.5, 14.6_
-  - [~] 16.2 Implement Catpedia screen:
+  - [x] 16.2 Implement Catpedia screen:
     - Filter tabs: All / Discovered / Owned.
     - Undiscovered cats shown as locked silhouettes.
     - _Requirements: 7.1, 7.2, 7.3, 7.4, 7.5_
-  - [~] 16.3 Implement community chat screen (Lvl1+ gate enforced client-side and server-side):
+  - [x] 16.3 Implement community chat screen (Lvl1+ gate enforced client-side and server-side):
     - Real-time messages via Socket.io; show 403 screen for non-owners.
     - _Requirements: 8.1, 8.2, 8.3, 8.4_
-  - [~] 16.4 Implement wallet top-up and food item purchase screens:
+  - [x] 16.4 Implement wallet top-up and food item purchase screens:
     - Top-up → redirect to payment URL (in-app browser); purchase → decrement wallet display.
     - _Requirements: 10.1, 10.2, 10.3, 10.4_
-  - [~] 16.5 Implement WebAR feeding screen:
+  - [x] 16.5 Implement WebAR feeding screen:
     - Open WebView with WebAR page on "Feed Cat" tap.
     - Listen for `feedingComplete` message → trigger `POST /donations`.
     - On WebView load failure → show fallback donation confirmation screen.
