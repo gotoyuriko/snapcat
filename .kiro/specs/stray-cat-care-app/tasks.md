@@ -182,16 +182,16 @@ Implement the CodingKitty modular monolith (Node.js/TypeScript backend + React N
     - **Property 11: Notification rate limit (with milestone bypass)**
     - **Validates: Requirements 12.5**
 
-- [ ] 15. React Native Client — Map and Scan screens
-  - [~] 15.1 Implement permissions onboarding screen:
+- [x] 15. React Native Client — Map and Scan screens
+  - [x] 15.1 Implement permissions onboarding screen:
     - Show explanation before requesting location and camera permissions.
     - Handle denied states per Requirements 1.3 and 1.4.
     - _Requirements: 1.1, 1.2, 1.3, 1.4_
-  - [~] 15.2 Implement live map screen using react-native-maps:
+  - [x] 15.2 Implement live map screen using react-native-maps:
     - Fetch `GET /map` on load and on GPS change; render revealed pins and silhouettes.
     - Tap silhouette → show approximate area label; tap revealed pin → navigate to cat profile (always show full profile info).
     - _Requirements: 2.1, 2.2, 2.3, 2.4, 2.5_
-  - [~] 15.3 Implement camera scan screen:
+  - [x] 15.3 Implement camera scan screen:
     - Capture photo → `POST /scan` → handle no_cat (prompt retry), confirm_needed (show dialog), matched/new_cat (reveal or register flow).
     - _Requirements: 3.1, 3.2, 3.3, 4.3, 4.4, 4.5, 4.6, 4.7_
 
