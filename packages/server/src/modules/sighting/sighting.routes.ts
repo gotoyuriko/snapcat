@@ -1,8 +1,12 @@
 import { Router } from 'express';
 import { authMiddleware } from '../../middleware/auth';
 import { SightingController } from './sighting.controller';
+import { SightingService } from './sighting.service';
+import { AlertsService } from '../alerts/alerts.service';
 
-const controller = new SightingController();
+const alertsService = new AlertsService();
+const sightingService = new SightingService(undefined, alertsService);
+const controller = new SightingController(sightingService);
 
 export const sightingRoutes = Router();
 

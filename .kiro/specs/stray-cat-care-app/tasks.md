@@ -173,12 +173,12 @@ Implement the CodingKitty modular monolith (Node.js/TypeScript backend + React N
   - Ensure all financial module tests pass. Verify wallet top-up → purchase → donate → escrow → XP award with mocked payment gateway and Temporal test server.
   - Ask the user if questions arise.
 
-- [ ] 14. Alerts Module
-  - [~] 14.1 Implement push notification service wrapper (FCM/APNs) with rate-limiter (max 10/user/hour using sliding window in Redis or DB); ownership milestone notifications SHALL bypass the rate limit.
+- [x] 14. Alerts Module
+  - [x] 14.1 Implement push notification service wrapper (FCM/APNs) with rate-limiter (max 10/user/hour using sliding window in Redis or DB); ownership milestone notifications SHALL bypass the rate limit.
     - _Requirements: 12.1, 12.2, 12.3, 12.4, 12.5_
-  - [~] 14.2 Wire push notifications to events: Lvl1 promotion, MedicalRequest status change, donation escrow release, new sighting for owned cat.
+  - [x] 14.2 Wire push notifications to events: Lvl1 promotion, MedicalRequest status change, donation escrow release, new sighting for owned cat.
     - _Requirements: 12.1, 12.2, 12.3, 12.4_
-  - [ ]\* 14.3 Write property test: for any user and any simulated burst of notification events in a 1-hour window, the total non-milestone notifications delivered does not exceed 10; ownership milestone notifications bypass the rate limit.
+  - [x] 14.3 Write property test: for any user and any simulated burst of notification events in a 1-hour window, the total non-milestone notifications delivered does not exceed 10; ownership milestone notifications bypass the rate limit.
     - **Property 11: Notification rate limit (with milestone bypass)**
     - **Validates: Requirements 12.5**
 

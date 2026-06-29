@@ -1,7 +1,6 @@
 import { PrismaClient } from '@prisma/client';
 import { fuzzCoordinates } from './gps-fuzz';
-
-const prisma = new PrismaClient();
+import { AlertsService } from '../alerts/alerts.service';
 
 export interface SightingRecord {
   id: string;
@@ -15,11 +14,20 @@ export interface SightingRecord {
 }
 
 export class SightingService {
+  private prisma: PrismaClient;
+  private alertsService: AlertsService | null;
+
+  constructor(prisma?: PrismaClient, alertsService?: AlertsService) {
+    this.prisma = prisma ?? new PrismaClient();
+    this.alertsService = alertsService ?? null;
+  }
+
   /**
    * Append a new sighting for a cat.
    * - Fuzzes raw GPS coordinates before storing (Req 5.1, 5.2)
    * - If fuzz fails, stores null location (fuzzedLat=0, fuzzedLng=0) per Req 5.4
    * - Updates Cat.lastKnownApproxLocation with fuzzed coords (Req 5.5)
+   * - Notifies all Lvl1+ owners of the cat (Req 12.4)
    */
   async appendSighting(
     catId: string,
@@ -36,7 +44,7 @@ export class SightingService {
     const fuzzedLng = fuzzed.fuzzedLng ?? 0;
 
     // Create the sighting record with fuzzed coordinates
-    const sighting = await prisma.sighting.create({
+    const sighting = await this.prisma.sighting.create({
       data: {
         catId,
         reporterId,
@@ -53,6 +61,10 @@ export class SightingService {
       await this.updateCatLastKnownLocation(catId, fuzzedLat, fuzzedLng);
     }
 
+    // Notify all Lvl1+ owners of this cat about the new sighting (Req 12.4)
+    // Notification failure must NOT block or rollback sighting creation
+    await this.notifySightingToOwners(catId, reporterId);
+
     return {
       id: sighting.id,
       catId: sighting.catId,
@@ -66,10 +78,35 @@ export class SightingService {
   }
 
   /**
+   * Notify all Lvl1+ owners of a cat about a new sighting (Req 12.4).
+   * Excludes the reporter from the notification list.
+   * Swallows errors so sighting creation is never broken by notification failure.
+   */
+  private async notifySightingToOwners(catId: string, reporterId: string): Promise<void> {
+    if (!this.alertsService) return;
+    try {
+      // Get all Lvl1+ owners, excluding the reporter
+      const owners = await this.prisma.ownership.findMany({
+        where: { catId, level: { gte: 1 }, userId: { not: reporterId } },
+        select: { userId: true },
+      });
+      if (owners.length === 0) return;
+
+      const cat = await this.prisma.cat.findUnique({ where: { id: catId }, select: { name: true } });
+      const catName = cat?.name ?? 'a cat';
+
+      const userIds = owners.map((o) => o.userId);
+      await this.alertsService.notifyMany(userIds, 'New Sighting', `A new sighting of ${catName} was reported!`, { data: { catId } });
+    } catch {
+      // Notification failure should not break sighting creation
+    }
+  }
+
+  /**
    * Update a cat's last known approximate location using fuzzed GPS coordinates.
    */
   async updateCatLastKnownLocation(catId: string, fuzzedLat: number, fuzzedLng: number): Promise<void> {
-    await prisma.cat.update({
+    await this.prisma.cat.update({
       where: { id: catId },
       data: {
         lastKnownApproxLat: fuzzedLat,
@@ -79,7 +116,7 @@ export class SightingService {
   }
 
   async getSightingsInArea(neLat: number, neLng: number, swLat: number, swLng: number): Promise<SightingRecord[]> {
-    const sightings = await prisma.sighting.findMany({
+    const sightings = await this.prisma.sighting.findMany({
       where: {
         fuzzedLat: { gte: swLat, lte: neLat },
         fuzzedLng: { gte: swLng, lte: neLng },
@@ -100,7 +137,7 @@ export class SightingService {
   }
 
   async getCatSightings(catId: string, limit: number = 20): Promise<SightingRecord[]> {
-    const sightings = await prisma.sighting.findMany({
+    const sightings = await this.prisma.sighting.findMany({
       where: { catId },
       orderBy: { timestamp: 'desc' },
       take: limit,
@@ -136,7 +173,7 @@ export class SightingService {
       whereClause.lastKnownApproxLng = { gte: bounds.swLng, lte: bounds.neLng };
     }
 
-    const cats = await prisma.cat.findMany({
+    const cats = await this.prisma.cat.findMany({
       where: whereClause,
       select: {
         id: true,
