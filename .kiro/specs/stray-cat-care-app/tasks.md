@@ -169,7 +169,7 @@ Implement the CodingKitty modular monolith (Node.js/TypeScript backend + React N
     - **Property 6: Temporal workflow idempotence (donation)**
     - **Validates: Requirements 10.6, 14.4**
 
-- [~] 13. Checkpoint — Workflows and financial layer green
+- [x] 13. Checkpoint — Workflows and financial layer green
   - Ensure all financial module tests pass. Verify wallet top-up → purchase → donate → escrow → XP award with mocked payment gateway and Temporal test server.
   - Ask the user if questions arise.
 
