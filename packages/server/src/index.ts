@@ -17,6 +17,7 @@ import { medicalRoutes } from './modules/medical/medical.routes';
 import { walletRoutes } from './modules/donation/wallet.routes';
 import { foodItemRoutes } from './modules/donation/food-item.routes';
 import { donationRoutes } from './modules/donation/donation.routes';
+import { leaderboardRoutes } from './modules/leaderboard/leaderboard.routes';
 // TODO: Import remaining route modules
 // import { gamificationRoutes } from './modules/gamification/gamification.routes';
 
@@ -43,6 +44,7 @@ app.use('/api/sighting', sightingRoutes);
 app.use('/api/map', mapRoutes);
 app.use('/api/catpedia', catpediaRoutes);
 app.use('/api/cats', chatRoutes);
+app.use('/api/cats', leaderboardRoutes);
 app.use('/api/staff', staffVerificationRoutes);
 app.use('/api/medical-requests', medicalRoutes);
 app.use('/api/wallet', walletRoutes);
