@@ -145,27 +145,27 @@ Implement the CodingKitty modular monolith (Node.js/TypeScript backend + React N
     - **Property 6: Temporal workflow idempotence**
     - **Validates: Requirements 9.1, 14.4**
 
-- [ ] 12. Donation / Wallet Module & Temporal Workflow
-  - [~] 12.1 Implement wallet top-up flow:
+- [x] 12. Donation / Wallet Module & Temporal Workflow
+  - [x] 12.1 Implement wallet top-up flow:
     - `POST /wallet/topup`: call security scanner (Aikido if free tier available, otherwise skip) → create payment intent via SANDBOX gateway → return payment URL.
     - `POST /wallet/webhook`: validate signature → credit walletBalance in integer MYR cents.
     - _Requirements: 10.1, 10.2, 10.8, 14.1, 14.5_
-  - [~] 12.2 Implement food item catalogue (`GET /food-items`) and purchase endpoint (`POST /food-items/purchase`):
+  - [x] 12.2 Implement food item catalogue (`GET /food-items`) and purchase endpoint (`POST /food-items/purchase`):
     - Purchase deducts wallet; increments UserInventory quantity.
     - Reject if walletBalance < item price.
     - _Requirements: 10.3, 10.4, 10.5_
-  - [ ]\* 12.3 Write property test: for any sequence of purchase and donation operations, walletBalance never goes below zero.
+  - [x] 12.3 Write property test: for any sequence of purchase and donation operations, walletBalance never goes below zero.
     - **Property 4: Wallet balance non-negativity**
     - **Validates: Requirements 10.3, 10.4, 10.5**
-  - [~] 12.4 Implement food donation endpoint (`POST /donations`):
+  - [x] 12.4 Implement food donation endpoint (`POST /donations`):
     - Deduct item from UserInventory; create Donation record; start Temporal `DonationEscrow` workflow.
     - Reject if item quantity = 0; do NOT create a Donation record or persist any record for rejected transactions.
     - _Requirements: 10.5, 10.6_
-  - [~] 12.5 Implement Temporal `DonationEscrowWorkflow`:
+  - [x] 12.5 Implement Temporal `DonationEscrowWorkflow`:
     - Hold item value for 24 h → release to cat pool → award XP → notify owners.
     - Use workflowId = donationId for idempotence.
     - _Requirements: 10.6, 10.7, 14.4_
-  - [ ]\* 12.6 Write property test: re-running `DonationEscrowWorkflow` with the same workflowId results in the same XP award and no duplicate wallet deduction.
+  - [x] 12.6 Write property test: re-running `DonationEscrowWorkflow` with the same workflowId results in the same XP award and no duplicate wallet deduction.
     - **Property 6: Temporal workflow idempotence (donation)**
     - **Validates: Requirements 10.6, 14.4**
 

@@ -11,34 +11,46 @@ import { Worker, NativeConnection } from '@temporalio/worker';
 import { config } from '../config';
 import path from 'path';
 
-const TASK_QUEUE = 'codingkitty-medical';
+const MEDICAL_TASK_QUEUE_NAME = 'codingkitty-medical';
+const DONATION_TASK_QUEUE_NAME = 'codingkitty-donation';
 
 /**
  * Creates and starts a Temporal worker that handles:
  * - Medical Reimbursement Workflow
- * - Donation Escrow Workflow (future)
+ * - Donation Escrow Workflow
  */
 export async function runWorker(): Promise<void> {
   const connection = await NativeConnection.connect({
     address: config.temporal.address,
   });
 
-  const worker = await Worker.create({
+  // Medical Reimbursement Worker
+  const medicalWorker = await Worker.create({
     connection,
     namespace: config.temporal.namespace,
-    taskQueue: TASK_QUEUE,
-    // Workflows are loaded from a separate bundle (Temporal requirement)
+    taskQueue: MEDICAL_TASK_QUEUE_NAME,
     workflowsPath: path.resolve(__dirname, './medical-reimbursement.workflow'),
-    // Activities are registered directly
     activities: require('./activities/medical-reimbursement.activities'),
   });
 
-  console.log(`Temporal worker started on task queue: ${TASK_QUEUE}`);
-  await worker.run();
+  // Donation Escrow Worker
+  const donationWorker = await Worker.create({
+    connection,
+    namespace: config.temporal.namespace,
+    taskQueue: DONATION_TASK_QUEUE_NAME,
+    workflowsPath: path.resolve(__dirname, './donation-escrow.workflow'),
+    activities: require('./activities/donation-escrow.activities'),
+  });
+
+  console.log(`Temporal workers started on task queues: ${MEDICAL_TASK_QUEUE_NAME}, ${DONATION_TASK_QUEUE_NAME}`);
+
+  // Run both workers concurrently
+  await Promise.all([medicalWorker.run(), donationWorker.run()]);
 }
 
-/** Task queue name exported for use by the client */
-export const MEDICAL_TASK_QUEUE = TASK_QUEUE;
+/** Task queue names exported for use by the client */
+export const MEDICAL_TASK_QUEUE = MEDICAL_TASK_QUEUE_NAME;
+export const DONATION_TASK_QUEUE = DONATION_TASK_QUEUE_NAME;
 
 // Run worker if executed directly
 if (require.main === module) {

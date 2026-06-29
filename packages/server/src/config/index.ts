@@ -27,4 +27,5 @@ export const config = {
     apiUrl: process.env.MEGADESCRIPTOR_API_URL || 'https://api-inference.huggingface.co/models/wildlife-tools/megadescriptor',
     apiKey: process.env.MEGADESCRIPTOR_API_KEY || '',
   },
+  paymentWebhookSecret: process.env.PAYMENT_WEBHOOK_SECRET || 'sandbox-webhook-secret',
 } as const;
