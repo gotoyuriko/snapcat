@@ -14,9 +14,11 @@ import { chatRoutes } from './modules/chat/chat.routes';
 import { ChatGateway } from './modules/chat/chat.gateway';
 import { staffVerificationRoutes } from './modules/staff-verification/staff-verification.routes';
 import { medicalRoutes } from './modules/medical/medical.routes';
+import { walletRoutes } from './modules/donation/wallet.routes';
+import { foodItemRoutes } from './modules/donation/food-item.routes';
+import { donationRoutes } from './modules/donation/donation.routes';
 // TODO: Import remaining route modules
 // import { gamificationRoutes } from './modules/gamification/gamification.routes';
-// import { donationRoutes } from './modules/donation/donation.routes';
 
 const app = express();
 const httpServer = createServer(app);
@@ -43,9 +45,11 @@ app.use('/api/catpedia', catpediaRoutes);
 app.use('/api/cats', chatRoutes);
 app.use('/api/staff', staffVerificationRoutes);
 app.use('/api/medical-requests', medicalRoutes);
+app.use('/api/wallet', walletRoutes);
+app.use('/api/food-items', foodItemRoutes);
+app.use('/api/donations', donationRoutes);
 // TODO: Mount remaining routes
 // app.use('/api/gamification', gamificationRoutes);
-// app.use('/api/donation', donationRoutes);
 
 // Socket.io setup — Initialize chat gateway
 const chatGateway = new ChatGateway(io);

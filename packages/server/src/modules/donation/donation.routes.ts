@@ -1,16 +1,19 @@
 import { Router } from 'express';
+import { DonationController } from './donation.controller';
+import { authMiddleware } from '../../middleware/auth';
 
-/**
- * TODO: Wire up donation routes
- * POST /              — Create a new donation
- * POST /:id/deliver   — Confirm food delivery
- * POST /:id/cancel    — Cancel/refund donation
- * GET  /history       — Get user's donation history
- */
+const controller = new DonationController();
 
 export const donationRoutes = Router();
 
-// donationRoutes.post('/', authMiddleware, controller.create);
-// donationRoutes.post('/:id/deliver', authMiddleware, controller.confirmDelivery);
-// donationRoutes.post('/:id/cancel', authMiddleware, controller.cancel);
-// donationRoutes.get('/history', authMiddleware, controller.history);
+// POST /donations — Create a new food donation
+donationRoutes.post('/', authMiddleware, (req, res) => controller.create(req, res));
+
+// GET /donations/history — Get user's donation history
+donationRoutes.get('/history', authMiddleware, (req, res) => controller.history(req, res));
+
+// POST /donations/:id/deliver — Confirm food delivery (future)
+donationRoutes.post('/:id/deliver', authMiddleware, (req, res) => controller.confirmDelivery(req, res));
+
+// POST /donations/:id/cancel — Cancel/refund donation (future)
+donationRoutes.post('/:id/cancel', authMiddleware, (req, res) => controller.cancel(req, res));

@@ -7,13 +7,14 @@
 
 import { Client, Connection, WorkflowHandle } from '@temporalio/client';
 import { config } from '../config';
-import { MEDICAL_TASK_QUEUE } from './worker';
+import { MEDICAL_TASK_QUEUE, DONATION_TASK_QUEUE } from './worker';
 import {
   medicalReimbursementWorkflow,
   partnerAcceptedSignal,
   serviceCompletedSignal,
   documentsResubmittedSignal,
 } from './medical-reimbursement.workflow';
+import { donationEscrowWorkflow } from './donation-escrow.workflow';
 
 let clientInstance: Client | null = null;
 
@@ -92,4 +93,29 @@ export async function signalDocumentsResubmitted(
   const client = await getTemporalClient();
   const handle: WorkflowHandle = client.workflow.getHandle(workflowId);
   await handle.signal(documentsResubmittedSignal, invoiceUrl);
+}
+
+
+/**
+ * Start the Donation Escrow workflow.
+ * Uses donationId as workflowId for idempotence — re-starting with the same
+ * donationId will not create a duplicate workflow.
+ *
+ * Requirement 10.5, 10.6: Escrow workflow for food donations.
+ */
+export async function startDonationEscrowWorkflow(
+  donationId: string,
+  donorId: string,
+  catId: string,
+  amountCents: number,
+): Promise<string> {
+  const client = await getTemporalClient();
+
+  const handle = await client.workflow.start(donationEscrowWorkflow, {
+    taskQueue: DONATION_TASK_QUEUE,
+    workflowId: donationId, // Idempotence key
+    args: [donationId, donorId, catId, amountCents],
+  });
+
+  return handle.workflowId;
 }

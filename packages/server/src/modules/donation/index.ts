@@ -19,3 +19,9 @@ export interface DonationModule {
 export { DonationService } from './donation.service';
 export { DonationController } from './donation.controller';
 export { donationRoutes } from './donation.routes';
+export { WalletService } from './wallet.service';
+export { WalletController } from './wallet.controller';
+export { walletRoutes } from './wallet.routes';
+export { FoodItemService } from './food-item.service';
+export { FoodItemController } from './food-item.controller';
+export { foodItemRoutes } from './food-item.routes';
