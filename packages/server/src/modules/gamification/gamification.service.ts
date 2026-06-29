@@ -198,6 +198,7 @@ export class GamificationService {
   /**
    * Sends a push notification for level-up events.
    * Called AFTER DB commits are complete.
+   * Uses notifyMilestone to bypass the rate limit (Requirement 12.5).
    */
   private async sendLevelUpNotification(
     userId: string,
@@ -207,12 +208,21 @@ export class GamificationService {
     try {
       const cat = await this.prisma.cat.findUnique({ where: { id: catId } });
       const catName = cat?.name ?? 'a cat';
-      await this.alertsService.notify(
-        userId,
-        'Level Up!',
-        `You reached Level ${newLevel} for ${catName}!`,
-        { catId, level: String(newLevel) },
-      );
+      if (this.alertsService.notifyMilestone) {
+        await this.alertsService.notifyMilestone(
+          userId,
+          'Level Up!',
+          `You reached Level ${newLevel} for ${catName}!`,
+          { catId, level: String(newLevel) },
+        );
+      } else {
+        await this.alertsService.notify(
+          userId,
+          'Level Up!',
+          `You reached Level ${newLevel} for ${catName}!`,
+          { catId, level: String(newLevel) },
+        );
+      }
     } catch {
       // Notification failure should not break the XP flow
     }
