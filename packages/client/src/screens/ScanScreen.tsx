@@ -60,16 +60,22 @@ export function ScanScreen() {
     setScanState({ type: 'loading' });
 
     try {
-      const photo = await cameraRef.current.takePictureAsync({ base64: true });
-      if (!photo?.base64) {
+      const photo = await cameraRef.current.takePictureAsync({ quality: 0.6 });
+      if (!photo?.uri) {
         setScanState({ type: 'no_cat' });
         return;
       }
 
-      const result = await api.post<RecognitionResult>('/scan', {
-        photo: photo.base64,
-        userGPS: { lat: latitude ?? 0, lng: longitude ?? 0 },
-      });
+      // Server expects multipart/form-data: a `photo` image file + `userGPS` JSON.
+      const form = new FormData();
+      form.append('photo', {
+        uri: photo.uri,
+        name: 'scan.jpg',
+        type: 'image/jpeg',
+      } as unknown as Blob);
+      form.append('userGPS', JSON.stringify({ lat: latitude ?? 0, lng: longitude ?? 0 }));
+
+      const result = await api.postForm<RecognitionResult>('/recognition/scan', form);
 
       switch (result.result) {
         case 'no_cat':
@@ -94,7 +100,10 @@ export function ScanScreen() {
           });
           break;
       }
-    } catch {
+    } catch (err) {
+      // 422 (no cat detected) also lands here since fetch treats it as non-OK;
+      // log so genuine failures (auth, network) are visible in Metro logs.
+      console.warn('Scan request failed:', err);
       setScanState({ type: 'no_cat' });
     }
   };
@@ -102,7 +111,7 @@ export function ScanScreen() {
   const handleConfirm = async (catId: string | 'new') => {
     setConfirmLoading(true);
     try {
-      const result = await api.post<ConfirmResult>('/scan/confirm', { catId });
+      const result = await api.post<ConfirmResult>('/recognition/scan/confirm', { catId });
       if (result.result === 'matched') {
         setScanState({
           type: 'matched',
@@ -272,16 +281,18 @@ export function ScanScreen() {
   // Default: Camera view
   return (
     <View style={styles.container}>
-      <CameraView ref={cameraRef} style={styles.camera} facing="back">
-        <View style={styles.cameraOverlay}>
-          <TouchableOpacity style={styles.backButton} onPress={handleBack}>
-            <Text style={styles.backButtonText}>✕</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.captureButton} onPress={handleCapture}>
-            <View style={styles.captureInner} />
-          </TouchableOpacity>
-        </View>
-      </CameraView>
+      <CameraView ref={cameraRef} style={styles.camera} facing="back" />
+      {/* CameraView does not support children — render the overlay as an
+          absolutely-positioned sibling on top. box-none lets taps fall through
+          to the camera everywhere except the buttons themselves. */}
+      <View style={styles.cameraOverlay} pointerEvents="box-none">
+        <TouchableOpacity style={styles.backButton} onPress={handleBack}>
+          <Text style={styles.backButtonText}>✕</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.captureButton} onPress={handleCapture}>
+          <View style={styles.captureInner} />
+        </TouchableOpacity>
+      </View>
     </View>
   );
 }
@@ -298,7 +309,7 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   cameraOverlay: {
-    flex: 1,
+    ...StyleSheet.absoluteFillObject,
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingVertical: 40,

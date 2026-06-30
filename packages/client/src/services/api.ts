@@ -1,38 +1,53 @@
 /**
- * TODO: Implement API client
- * - Base URL configuration (dev vs prod)
- * - JWT token injection via interceptor
- * - Request/response error handling
- * - Type-safe API calls using @codingkitty/shared types
+ * API client: JSON + multipart helpers with JWT injection and error surfacing.
  */
+import { getToken } from './authToken';
 
-const BASE_URL = 'http://172.19.66.228:3000/api';
+// Host is supplied at bundle time via EXPO_PUBLIC_API_URL (e.g. the backend's
+// Cloudflare tunnel URL, set by start-tunnel.sh). Falls back to localhost for
+// web / same-machine runs. EXPO_PUBLIC_* vars are inlined into the JS bundle.
+const API_HOST = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:3000';
+const BASE_URL = `${API_HOST}/api`;
 
-/** Generic fetch wrapper with auth header injection */
-async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> {
-  // TODO: Get token from secure storage
-  const token = '';
+/**
+ * Generic fetch wrapper: injects the Bearer token, sets JSON content-type
+ * (unless sending FormData, where fetch must set the multipart boundary itself),
+ * and surfaces the server's error body in thrown errors for easier debugging.
+ */
+async function apiFetch<T>(path: string, options: RequestInit = {}, isForm = false): Promise<T> {
+  const token = getToken();
 
   const response = await fetch(`${BASE_URL}${path}`, {
     ...options,
     headers: {
-      'Content-Type': 'application/json',
+      ...(isForm ? {} : { 'Content-Type': 'application/json' }),
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...options.headers,
     },
   });
 
   if (!response.ok) {
-    throw new Error(`API Error: ${response.status} ${response.statusText}`);
+    let detail = '';
+    try {
+      detail = ` — ${(await response.text()).slice(0, 300)}`;
+    } catch {
+      /* ignore */
+    }
+    throw new Error(`API Error: ${response.status} ${response.statusText}${detail}`);
   }
 
-  return response.json() as Promise<T>;
+  // Some endpoints (e.g. 204) return no body.
+  const text = await response.text();
+  return (text ? JSON.parse(text) : undefined) as T;
 }
 
 export const api = {
   get: <T>(path: string) => apiFetch<T>(path),
   post: <T>(path: string, body: unknown) =>
     apiFetch<T>(path, { method: 'POST', body: JSON.stringify(body) }),
+  /** POST multipart/form-data (file uploads); do NOT set Content-Type manually. */
+  postForm: <T>(path: string, form: FormData) =>
+    apiFetch<T>(path, { method: 'POST', body: form as unknown as RequestInit['body'] }, true),
   put: <T>(path: string, body: unknown) =>
     apiFetch<T>(path, { method: 'PUT', body: JSON.stringify(body) }),
   delete: <T>(path: string) =>

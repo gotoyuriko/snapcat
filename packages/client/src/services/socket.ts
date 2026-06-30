@@ -8,7 +8,9 @@ import { io, Socket } from 'socket.io-client';
  * - Emit and listen for real-time events
  */
 
-const SOCKET_URL = 'http://172.19.66.228:3000';
+// Same host as the REST API (the backend's Cloudflare tunnel URL set by
+// start-tunnel.sh via EXPO_PUBLIC_API_URL), falling back to localhost.
+const SOCKET_URL = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:3000';
 
 let socket: Socket | null = null;
 

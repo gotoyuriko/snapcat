@@ -31,12 +31,16 @@ services:
       - "7233:7233"    # gRPC frontend
       - "8233:8233"    # Web UI
     environment:
-      - DB=postgresql
+      - DB=postgres12
+      # Bind all interfaces so the in-container healthcheck (127.0.0.1:7233) and
+      # the host port mapping both reach the frontend (auto-setup otherwise binds
+      # only the container's eth0 IP, leaving the container stuck "unhealthy").
+      - BIND_ON_IP=0.0.0.0
       - DB_PORT=5432
       - POSTGRES_USER=postgres
       - POSTGRES_PWD=postgres
       - POSTGRES_SEEDS=db
-      - DYNAMIC_CONFIG_FILE_PATH=config/dynamicconfig/development-sql.yaml
+      - DYNAMIC_CONFIG_FILE_PATH=config/dynamicconfig/docker.yaml
     depends_on:
       db:
         condition: service_healthy

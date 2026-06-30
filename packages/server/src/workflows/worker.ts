@@ -9,7 +9,6 @@
 
 import { Worker, NativeConnection } from '@temporalio/worker';
 import { config } from '../config';
-import path from 'path';
 
 const MEDICAL_TASK_QUEUE_NAME = 'codingkitty-medical';
 const DONATION_TASK_QUEUE_NAME = 'codingkitty-donation';
@@ -29,7 +28,7 @@ export async function runWorker(): Promise<void> {
     connection,
     namespace: config.temporal.namespace,
     taskQueue: MEDICAL_TASK_QUEUE_NAME,
-    workflowsPath: path.resolve(__dirname, './medical-reimbursement.workflow'),
+    workflowsPath: require.resolve('./medical-reimbursement.workflow'),
     activities: require('./activities/medical-reimbursement.activities'),
   });
 
@@ -38,7 +37,7 @@ export async function runWorker(): Promise<void> {
     connection,
     namespace: config.temporal.namespace,
     taskQueue: DONATION_TASK_QUEUE_NAME,
-    workflowsPath: path.resolve(__dirname, './donation-escrow.workflow'),
+    workflowsPath: require.resolve('./donation-escrow.workflow'),
     activities: require('./activities/donation-escrow.activities'),
   });
 

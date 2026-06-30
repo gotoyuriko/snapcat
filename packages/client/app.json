@@ -11,7 +11,9 @@
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
-    "assetBundlePatterns": ["**/*"],
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.codingkitty.app",
@@ -26,11 +28,15 @@
         "backgroundColor": "#ffffff"
       },
       "package": "com.codingkitty.app",
-      "permissions": ["CAMERA", "ACCESS_FINE_LOCATION"]
+      "permissions": [
+        "CAMERA",
+        "ACCESS_FINE_LOCATION"
+      ]
     },
     "plugins": [
       "expo-camera",
-      "expo-location"
+      "expo-location",
+      "expo-secure-store"
     ]
   }
 }
