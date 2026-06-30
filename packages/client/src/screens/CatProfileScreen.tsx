@@ -150,10 +150,10 @@ function OwnerLeaderboard({ catId }: { catId: string }) {
   useEffect(() => {
     async function fetchLeaderboard() {
       try {
-        const data = await api.get<LeaderboardEntry[]>(
+        const data = await api.get<{ entries: LeaderboardEntry[] }>(
           `/cats/${catId}/leaderboard?limit=20`,
         );
-        setEntries(data);
+        setEntries(Array.isArray(data?.entries) ? data.entries : []);
       } catch {
         setEntries([]);
       } finally {

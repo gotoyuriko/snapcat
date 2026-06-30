@@ -1,10 +1,12 @@
 /**
  * Authentication state (zustand store).
  *
- * - login/register call the backend, persist the JWT via authToken (SecureStore),
- *   and decode userId/email from the token for the UI.
- * - initialize() hydrates the persisted token on app startup; RootNavigation
- *   gates the app on `isAuthenticated` once `loading` is false.
+ * - login/register call the backend, persist access + refresh tokens via
+ *   authToken (SecureStore), and decode userId/email from the access token.
+ * - initialize() hydrates persisted tokens on app startup; RootNavigation gates
+ *   the app on `isAuthenticated` once `loading` is false.
+ * - api.ts auto-refreshes expired access tokens; when the refresh token is also
+ *   dead it calls the handler registered below, which logs the user out.
  */
 import { create } from 'zustand';
 import { api } from '../services/api';
@@ -23,7 +25,7 @@ export interface AuthState {
 }
 
 interface AuthActions {
-  /** Load any persisted token from secure storage (call once at startup). */
+  /** Load any persisted tokens from secure storage (call once at startup). */
   initialize: () => Promise<void>;
   login: (email: string, password: string) => Promise<void>;
   register: (email: string, displayName: string, password: string) => Promise<void>;
@@ -59,23 +61,33 @@ export const useAuth = create<AuthState & AuthActions>((set) => ({
   },
 
   login: async (email, password) => {
-    const { accessToken } = await api.post<TokenResponse>('/auth/login', { email, password });
-    await setToken(accessToken);
+    const { accessToken, refreshToken } = await api.post<TokenResponse>('/auth/login', {
+      email,
+      password,
+    });
+    await setTokens(accessToken, refreshToken);
     set(applyToken(accessToken));
   },
 
   register: async (email, displayName, password) => {
-    const { accessToken } = await api.post<TokenResponse>('/auth/register', {
+    const { accessToken, refreshToken } = await api.post<TokenResponse>('/auth/register', {
       email,
       displayName,
       password,
     });
-    await setToken(accessToken);
+    await setTokens(accessToken, refreshToken);
     set(applyToken(accessToken));
   },
 
   logout: async () => {
-    await clearToken();
+    await clearTokens();
     set({ isAuthenticated: false, userId: null, token: null });
   },
 }));
+
+// When api.ts exhausts token refresh (refresh token expired/revoked), end the
+// session so RootNavigation falls back to the Login screen.
+setUnauthorizedHandler(() => {
+  void clearTokens();
+  useAuth.setState({ isAuthenticated: false, userId: null, token: null });
+});

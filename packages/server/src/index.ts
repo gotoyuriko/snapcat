@@ -7,6 +7,7 @@ import { config } from './config';
 
 import { authRoutes } from './modules/auth/auth.routes';
 import { recognitionRoutes } from './modules/recognition/recognition.routes';
+import { catProfileRoutes } from './modules/cat-profile/cat-profile.routes';
 import { sightingRoutes } from './modules/sighting/sighting.routes';
 import { mapRoutes } from './modules/sighting/map.routes';
 import { catpediaRoutes } from './modules/catpedia/catpedia.routes';
@@ -45,6 +46,7 @@ app.use('/api/map', mapRoutes);
 app.use('/api/catpedia', catpediaRoutes);
 app.use('/api/cats', chatRoutes);
 app.use('/api/cats', leaderboardRoutes);
+app.use('/api/cats', catProfileRoutes);
 app.use('/api/staff', staffVerificationRoutes);
 app.use('/api/medical-requests', medicalRoutes);
 app.use('/api/wallet', walletRoutes);

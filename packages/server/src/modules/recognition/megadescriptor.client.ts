@@ -1,6 +1,42 @@
 import { config } from '../../config';
 
-const EXPECTED_EMBEDDING_LENGTH = 512;
+// MegaDescriptor-T-224 (Swin-Tiny) outputs a 768-dim embedding.
+const EXPECTED_EMBEDDING_LENGTH = 768;
+
+/** Small seeded PRNG (deterministic given the seed). */
+function mulberry32(seed: number): () => number {
+  let a = seed;
+  return () => {
+    a = (a + 0x6d2b79f5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+/**
+ * Mock embedding for RECOGNITION_MOCK: a deterministic unit-length 512-dim
+ * vector seeded from the image bytes. The same photo embeds identically (so a
+ * re-scan of the exact image matches), while different photos diverge.
+ */
+function mockEmbedding(buf: Buffer): Float32Array {
+  let seed = 0x811c9dc5; // FNV-1a offset basis
+  const step = Math.max(1, Math.floor(buf.length / 4096));
+  for (let i = 0; i < buf.length; i += step) {
+    seed = Math.imul(seed ^ buf[i], 0x01000193) >>> 0;
+  }
+  const rand = mulberry32(seed);
+  const v = new Float32Array(EXPECTED_EMBEDDING_LENGTH);
+  let norm = 0;
+  for (let i = 0; i < EXPECTED_EMBEDDING_LENGTH; i++) {
+    const x = rand() * 2 - 1;
+    v[i] = x;
+    norm += x * x;
+  }
+  norm = Math.sqrt(norm) || 1;
+  for (let i = 0; i < EXPECTED_EMBEDDING_LENGTH; i++) v[i] /= norm;
+  return v;
+}
 
 /**
  * MegaDescriptor client for wildlife re-identification.
@@ -27,46 +63,42 @@ export class MegaDescriptorClient {
    * @throws Error if API key is missing, service is unavailable, or vector length is invalid
    */
   async embed(croppedBuffer: Buffer): Promise<Float32Array> {
-    if (!this.apiKey) {
-      throw new Error('MegaDescriptor API key is not configured. Set MEGADESCRIPTOR_API_KEY environment variable.');
-    }
-
     if (!croppedBuffer || croppedBuffer.length === 0) {
       throw new Error('croppedBuffer must be a non-empty Buffer');
     }
 
+    if (config.recognitionMock) {
+      // Mock mode: deterministic embedding from the image bytes, no HF call.
+      return mockEmbedding(croppedBuffer);
+    }
+
+    const form = new FormData();
+    form.append('file', new Blob([new Uint8Array(croppedBuffer)]), 'crop.jpg');
+
     let response: Response;
     try {
-      response = await fetch(this.apiUrl, {
+      response = await fetch(`${config.inference.url}/embed`, {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${this.apiKey}`,
-          'Content-Type': 'application/octet-stream',
-        },
-        body: new Uint8Array(croppedBuffer),
+        body: form,
       });
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
-      throw new Error(`MegaDescriptor service unavailable: ${message}`);
-    }
-
-    if (response.status === 503) {
-      throw new Error('MegaDescriptor service temporarily unavailable — please try again shortly');
+      throw new Error(`Inference service unavailable: ${message}`);
     }
 
     if (!response.ok) {
       const body = await response.text().catch(() => '');
       throw new Error(
-        `MegaDescriptor API error (HTTP ${response.status}): ${body || response.statusText}`,
+        `Embed request failed (HTTP ${response.status}): ${body || response.statusText}`,
       );
     }
 
-    const json: unknown = await response.json();
-    const embedding = this.parseEmbedding(json);
+    const json = (await response.json()) as { embedding?: number[] };
+    const embedding = json.embedding ?? [];
 
     if (embedding.length !== EXPECTED_EMBEDDING_LENGTH) {
       throw new Error(
-        `MegaDescriptor returned embedding of length ${embedding.length}, expected ${EXPECTED_EMBEDDING_LENGTH}`,
+        `Embedding length ${embedding.length}, expected ${EXPECTED_EMBEDDING_LENGTH}`,
       );
     }
 

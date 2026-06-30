@@ -82,6 +82,23 @@ services:
       timeout: 5s
       retries: 5
 
+  inference:
+    build: ./packages/inference
+    container_name: codingkitty-inference
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    volumes:
+      # Persist downloaded model weights (MegaDescriptor ~110MB) across restarts.
+      - codingkitty_modelcache:/cache
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 15s
+      timeout: 5s
+      retries: 20
+      start_period: 120s
+
 volumes:
   codingkitty_pgdata:
   codingkitty_minio:
+  codingkitty_modelcache:

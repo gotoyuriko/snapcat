@@ -18,30 +18,14 @@ export type DetectCatResult =
   | { noDetection: true };
 
 /**
- * Raw prediction item from the Ultralytics YOLO inference API response.
+ * Response from the local inference service's /detect endpoint
+ * (packages/inference). Detection + cat-class filtering happen server-side.
  */
-interface UltralyticsPrediction {
-  class: number;
-  name: string;
-  confidence: number;
-  box: {
-    x1: number;
-    y1: number;
-    x2: number;
-    y2: number;
-  };
+interface DetectResponse {
+  detected: boolean;
+  confidence?: number;
+  box?: { x1: number; y1: number; x2: number; y2: number };
 }
-
-/**
- * COCO class ID for "cat".
- */
-const CAT_CLASS_ID = 15;
-const CAT_CLASS_NAME = 'cat';
-
-/**
- * Minimum confidence threshold for accepting a detection.
- */
-const MIN_CONFIDENCE = 0.25;
 
 export class YoloClient {
   private readonly apiUrl: string;
@@ -60,6 +44,12 @@ export class YoloClient {
    * @returns `{ cropped: Buffer }` with the cropped cat region, or `{ noDetection: true }` if no cat found.
    */
   async detectCat(photoBuffer: Buffer): Promise<DetectCatResult> {
+    if (config.recognitionMock) {
+      // Mock mode: skip the external YOLO API and treat the whole image as the
+      // detected cat region (no crop). Lets the pipeline run offline.
+      return { cropped: photoBuffer };
+    }
+
     const catDetections = await this.callYoloApi(photoBuffer);
 
     if (catDetections.length === 0) {
@@ -76,59 +66,45 @@ export class YoloClient {
   }
 
   /**
-   * Calls the Ultralytics YOLO API and returns all cat detections.
-   * Uses base64 encoding to avoid FormData type issues in the monorepo.
+   * Calls the local inference service's /detect endpoint (YOLOv8) and returns
+   * the cat detection(s). The service does class filtering + confidence cutoff.
    */
   private async callYoloApi(imageBuffer: Buffer): Promise<YoloDetection[]> {
-    if (!this.apiKey) {
-      throw new Error('YOLO API key is not configured. Set YOLO_API_KEY in your environment.');
+    const form = new FormData();
+    form.append('file', new Blob([new Uint8Array(imageBuffer)]), 'image.jpg');
+
+    let response: Response;
+    try {
+      response = await fetch(`${config.inference.url}/detect`, {
+        method: 'POST',
+        body: form,
+      });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      throw new Error(`Inference service unavailable: ${message}`);
     }
-
-    const base64Image = imageBuffer.toString('base64');
-
-    const response = await fetch(this.apiUrl, {
-      method: 'POST',
-      headers: {
-        'x-api-key': this.apiKey,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'yolov8n',
-        image: base64Image,
-        confidence: MIN_CONFIDENCE,
-      }),
-    });
 
     if (!response.ok) {
       const errorText = await response.text().catch(() => 'Unknown error');
-      throw new Error(
-        `YOLO API request failed with status ${response.status}: ${errorText}`
-      );
+      throw new Error(`Detect request failed with status ${response.status}: ${errorText}`);
     }
 
-    const data = (await response.json()) as
-      | { data?: UltralyticsPrediction[] }
-      | UltralyticsPrediction[];
+    const data = (await response.json()) as DetectResponse;
+    if (!data.detected || !data.box) {
+      return [];
+    }
 
-    // The Ultralytics API may return { data: [...] } or directly [...]
-    const predictions: UltralyticsPrediction[] = Array.isArray(data)
-      ? data
-      : (data.data ?? []);
-
-    // Filter to cat detections only (class ID 15 or name "cat")
-    const catPredictions = predictions.filter(
-      (p) => p.class === CAT_CLASS_ID || p.name === CAT_CLASS_NAME
-    );
-
-    return catPredictions.map((p) => ({
-      confidence: p.confidence,
-      boundingBox: {
-        x: Math.round(p.box.x1),
-        y: Math.round(p.box.y1),
-        width: Math.round(p.box.x2 - p.box.x1),
-        height: Math.round(p.box.y2 - p.box.y1),
+    return [
+      {
+        confidence: data.confidence ?? 0,
+        boundingBox: {
+          x: Math.round(data.box.x1),
+          y: Math.round(data.box.y1),
+          width: Math.round(data.box.x2 - data.box.x1),
+          height: Math.round(data.box.y2 - data.box.y1),
+        },
       },
-    }));
+    ];
   }
 
   /**

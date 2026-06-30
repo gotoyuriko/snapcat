@@ -52,8 +52,8 @@ model RefreshToken {
 model Cat {
   id                  String                      @id @default(uuid())
   name                String?
-  // pgvector: 512-dimensional embedding for MegaDescriptor re-ID
-  embedding           Unsupported("vector(512)")?
+  // pgvector: 768-dimensional embedding for MegaDescriptor-T-224 re-ID
+  embedding           Unsupported("vector(768)")?
   embeddingRef        String                      @default("")
   firstDiscovererId   String
   lastKnownApproxLat  Float                       @default(0)

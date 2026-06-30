@@ -19,6 +19,16 @@ export const config = {
     url: process.env.REDIS_URL || 'redis://localhost:6379',
   },
   gpsFuzzRadiusMeters: parseInt(process.env.GPS_FUZZ_RADIUS_METERS || '200', 10),
+  /**
+   * When true, the recognition pipeline stubs YOLO detection + MegaDescriptor
+   * embedding instead of calling external AI services — lets the full
+   * scan→match/new-cat→XP flow run offline for local dev. Set RECOGNITION_MOCK=true.
+   */
+  recognitionMock: process.env.RECOGNITION_MOCK === 'true',
+  /** Self-hosted inference service (YOLO detection + MegaDescriptor embedding). */
+  inference: {
+    url: process.env.INFERENCE_URL || 'http://localhost:8000',
+  },
   yolo: {
     apiUrl: process.env.YOLO_API_URL || 'https://api.ultralytics.com/v1/predict',
     apiKey: process.env.YOLO_API_KEY || '',

@@ -1,40 +1,67 @@
 /**
- * Access-token storage for the API/socket clients.
+ * Token storage for the API/socket clients.
  *
- * The JWT is persisted in the device keychain via expo-secure-store and mirrored
- * in memory so request code (api.ts) can read it synchronously without awaiting
- * SecureStore on every call. Call loadToken() once at app startup to hydrate the
- * cache from disk.
+ * Access + refresh tokens are persisted in the device keychain via
+ * expo-secure-store and mirrored in memory so request code (api.ts) can read the
+ * access token synchronously. Access tokens are short-lived (~15 min); api.ts
+ * transparently refreshes them using the refresh token (~7 days).
+ *
+ * Call loadTokens() once at app startup to hydrate the cache from disk.
  */
 import * as SecureStore from 'expo-secure-store';
 
-const TOKEN_KEY = 'codingkitty.accessToken';
+const ACCESS_KEY = 'codingkitty.accessToken';
+const REFRESH_KEY = 'codingkitty.refreshToken';
 
-let cachedToken: string | null = null;
+let cachedAccess: string | null = null;
+let cachedRefresh: string | null = null;
 
-/** Hydrate the in-memory token from secure storage (call once at startup). */
-export async function loadToken(): Promise<string | null> {
+/** Hydrate both tokens from secure storage (call once at startup). */
+export async function loadTokens(): Promise<string | null> {
   try {
-    cachedToken = await SecureStore.getItemAsync(TOKEN_KEY);
+    cachedAccess = await SecureStore.getItemAsync(ACCESS_KEY);
+    cachedRefresh = await SecureStore.getItemAsync(REFRESH_KEY);
   } catch {
-    cachedToken = null;
+    cachedAccess = null;
+    cachedRefresh = null;
   }
-  return cachedToken;
+  return cachedAccess;
 }
 
-/** Current access token (in-memory, synchronous) for request header injection. */
+/** Current access token (in-memory, synchronous) for header injection. */
 export function getToken(): string | null {
-  return cachedToken;
+  return cachedAccess;
 }
 
-export async function setToken(token: string): Promise<void> {
-  cachedToken = token;
-  await SecureStore.setItemAsync(TOKEN_KEY, token);
+export function getRefreshToken(): string | null {
+  return cachedRefresh;
 }
 
-export async function clearToken(): Promise<void> {
-  cachedToken = null;
-  await SecureStore.deleteItemAsync(TOKEN_KEY);
+export async function setTokens(accessToken: string, refreshToken: string): Promise<void> {
+  cachedAccess = accessToken;
+  cachedRefresh = refreshToken;
+  await SecureStore.setItemAsync(ACCESS_KEY, accessToken);
+  await SecureStore.setItemAsync(REFRESH_KEY, refreshToken);
+}
+
+export async function clearTokens(): Promise<void> {
+  cachedAccess = null;
+  cachedRefresh = null;
+  await SecureStore.deleteItemAsync(ACCESS_KEY);
+  await SecureStore.deleteItemAsync(REFRESH_KEY);
+}
+
+// --- Session-expiry callback ---------------------------------------------
+// api.ts calls notifyUnauthorized() when a refresh fails (refresh token expired
+// or revoked); useAuth registers a handler that clears state and bounces to login.
+let onUnauthorized: (() => void) | null = null;
+
+export function setUnauthorizedHandler(fn: () => void): void {
+  onUnauthorized = fn;
+}
+
+export function notifyUnauthorized(): void {
+  onUnauthorized?.();
 }
 
 const B64_CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';

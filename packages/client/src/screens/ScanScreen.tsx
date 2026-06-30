@@ -12,7 +12,7 @@ import { CameraView, useCameraPermissions } from 'expo-camera';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation';
-import { api } from '../services/api';
+import { api, ApiError } from '../services/api';
 import { useLocation } from '../hooks/useLocation';
 
 /** Types matching the POST /scan response */
@@ -36,6 +36,7 @@ type ScanState =
   | { type: 'camera' }
   | { type: 'loading' }
   | { type: 'no_cat' }
+  | { type: 'error'; message: string }
   | { type: 'matched'; cat: Cat; xpAwarded: number; levelUp: boolean }
   | { type: 'confirm_needed'; candidateCat: Cat }
   | { type: 'new_cat'; cat: Cat; xpAwarded: number };
@@ -101,10 +102,19 @@ export function ScanScreen() {
           break;
       }
     } catch (err) {
-      // 422 (no cat detected) also lands here since fetch treats it as non-OK;
-      // log so genuine failures (auth, network) are visible in Metro logs.
       console.warn('Scan request failed:', err);
-      setScanState({ type: 'no_cat' });
+      // 422 is the genuine "no cat detected" result; anything else (503 AI
+      // service down, 401, network) is a real failure — show it honestly rather
+      // than misreporting it as "no cat".
+      if (err instanceof ApiError && err.status === 422) {
+        setScanState({ type: 'no_cat' });
+      } else {
+        const message =
+          err instanceof ApiError
+            ? err.serverMessage ?? `Request failed (${err.status})`
+            : 'Could not reach the server. Check your connection.';
+        setScanState({ type: 'error', message });
+      }
     }
   };
 
@@ -177,6 +187,21 @@ export function ScanScreen() {
       <View style={styles.container}>
         <ActivityIndicator size="large" color="#4CAF50" />
         <Text style={styles.loadingText}>Scanning for cats...</Text>
+      </View>
+    );
+  }
+
+  // Service/network error (distinct from a genuine "no cat" result)
+  if (scanState.type === 'error') {
+    return (
+      <View style={styles.container}>
+        <Text style={styles.errorText}>{scanState.message}</Text>
+        <TouchableOpacity style={styles.button} onPress={handleRetry}>
+          <Text style={styles.buttonText}>Retry</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.secondaryButton} onPress={handleBack}>
+          <Text style={styles.secondaryButtonText}>Go Back</Text>
+        </TouchableOpacity>
       </View>
     );
   }
