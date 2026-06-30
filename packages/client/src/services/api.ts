@@ -6,7 +6,7 @@
  * - Type-safe API calls using @codingkitty/shared types
  */
 
-const BASE_URL = 'http://localhost:3000/api';
+const BASE_URL = 'http://172.19.66.228:3000/api';
 
 /** Generic fetch wrapper with auth header injection */
 async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> {

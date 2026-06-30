@@ -12,6 +12,7 @@
     "test:property": "jest --testPathPattern=property",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
+    "worker": "ts-node src/workflows/worker.ts",
     "clean": "rm -rf dist"
   },
   "dependencies": {

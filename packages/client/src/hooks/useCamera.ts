@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react';
-import { Camera, PermissionStatus } from 'expo-camera';
+import { Camera } from 'expo-camera';
+import { PermissionStatus } from 'expo-modules-core';
 
 export interface CameraState {
   permissionStatus: PermissionStatus | null;

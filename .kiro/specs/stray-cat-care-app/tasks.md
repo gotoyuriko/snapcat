@@ -224,7 +224,7 @@ Implement the CodingKitty modular monolith (Node.js/TypeScript backend + React N
     - On WebView load failure → show fallback donation confirmation screen.
     - _Requirements: 11.1, 11.2, 11.3_
 
-- [~] 17. Checkpoint — Client screens integrated
+- [x] 17. Checkpoint — Client screens integrated
   - Ensure all screens render correctly with the running backend. Run the full E2E happy path: onboard → scan → discover cat → donate food → verify XP update → check Catpedia filter.
   - Ask the user if questions arise.
 

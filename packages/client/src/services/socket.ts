@@ -8,7 +8,7 @@ import { io, Socket } from 'socket.io-client';
  * - Emit and listen for real-time events
  */
 
-const SOCKET_URL = 'http://localhost:3000';
+const SOCKET_URL = 'http://172.19.66.228:3000';
 
 let socket: Socket | null = null;
 

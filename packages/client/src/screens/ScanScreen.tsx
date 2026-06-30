@@ -8,7 +8,7 @@ import {
   Modal,
   Image,
 } from 'react-native';
-import { Camera, CameraType } from 'expo-camera';
+import { CameraView, useCameraPermissions } from 'expo-camera';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation';
@@ -44,8 +44,8 @@ type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
 export function ScanScreen() {
   const navigation = useNavigation<NavigationProp>();
-  const cameraRef = useRef<Camera>(null);
-  const [permission, requestPermission] = Camera.useCameraPermissions();
+  const cameraRef = useRef<CameraView>(null);
+  const [permission, requestPermission] = useCameraPermissions();
   const [scanState, setScanState] = useState<ScanState>({ type: 'camera' });
   const [confirmLoading, setConfirmLoading] = useState(false);
   const { latitude, longitude, refreshLocation } = useLocation();
@@ -272,7 +272,7 @@ export function ScanScreen() {
   // Default: Camera view
   return (
     <View style={styles.container}>
-      <Camera ref={cameraRef} style={styles.camera} type={CameraType.back}>
+      <CameraView ref={cameraRef} style={styles.camera} facing="back">
         <View style={styles.cameraOverlay}>
           <TouchableOpacity style={styles.backButton} onPress={handleBack}>
             <Text style={styles.backButtonText}>✕</Text>
@@ -281,7 +281,7 @@ export function ScanScreen() {
             <View style={styles.captureInner} />
           </TouchableOpacity>
         </View>
-      </Camera>
+      </CameraView>
     </View>
   );
 }

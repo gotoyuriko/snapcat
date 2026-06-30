@@ -30,6 +30,9 @@ packages/client/android/.gradle/
 packages/client/android/app/build/
 *.hprof
 
+# Expo
+.expo/
+
 # Test coverage
 coverage/
 

@@ -6,8 +6,9 @@ import React from 'react';
 
 // Mock react-native-webview
 jest.mock('react-native-webview', () => {
+  const ReactModule = require('react');
   const { View } = require('react-native');
-  const MockWebView = React.forwardRef((props: any, ref: any) => {
+  const MockWebView = ReactModule.forwardRef((props: any, ref: any) => {
     // Store props for test access
     (MockWebView as any).__lastProps = props;
     return <View testID="webview" {...props} />;

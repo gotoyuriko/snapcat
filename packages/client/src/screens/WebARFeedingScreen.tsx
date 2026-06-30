@@ -98,7 +98,7 @@ export function WebARFeedingScreen({ route, navigation }: Props) {
         </View>
       )}
       <WebView
-        ref={webViewRef}
+        ref={webViewRef as any}
         source={{ uri: `${WEBAR_BASE_URL}?catId=${catId}` }}
         style={styles.webView}
         onMessage={handleWebViewMessage}
