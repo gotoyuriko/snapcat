@@ -13,6 +13,7 @@ import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation';
 import { useLocation } from '../hooks/useLocation';
+import { useAuth } from '../hooks/useAuth';
 import { api } from '../services/api';
 
 /** Shape returned by GET /map */
@@ -49,6 +50,7 @@ const REFETCH_DISTANCE_THRESHOLD = 200; // meters
 
 export function MapScreen() {
   const navigation = useNavigation<NavigationProp>();
+  const logout = useAuth((s) => s.logout);
   const { latitude, longitude, loading: locationLoading, error: locationError } = useLocation();
 
   const [pins, setPins] = useState<MapPin[]>([]);
@@ -175,6 +177,16 @@ export function MapScreen() {
         <Text style={styles.fabIcon}>📷</Text>
       </TouchableOpacity>
 
+      {/* Logout button */}
+      <TouchableOpacity
+        style={styles.logoutBtn}
+        onPress={logout}
+        accessibilityLabel="Log out"
+        accessibilityRole="button"
+      >
+        <Text style={styles.logoutText}>Log out</Text>
+      </TouchableOpacity>
+
       {/* Silhouette tap modal — shows approximate area only */}
       <Modal
         visible={selectedSilhouette != null}
@@ -236,6 +248,25 @@ const styles = StyleSheet.create({
   },
   fabIcon: {
     fontSize: 24,
+  },
+  logoutBtn: {
+    position: 'absolute',
+    top: 48,
+    left: 16,
+    backgroundColor: '#fff',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
+  },
+  logoutText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#e53935',
   },
   loadingBadge: {
     position: 'absolute',

@@ -17,6 +17,10 @@
 #
 set -euo pipefail
 
+# Add common Windows install locations so cloudflared is found under Git Bash
+# Add user home so a locally installed cloudflared binary is found
+export PATH="$HOME:$PATH"
+
 command -v cloudflared >/dev/null || { echo "✖ cloudflared not found on PATH"; exit 1; }
 
 API_PORT="${API_PORT:-3000}"
@@ -106,4 +110,6 @@ fi
 WATCHDOG_PID=$!
 
 echo "▶ Starting Expo (Metro on :$PORT)..."
-npx expo start --port "$PORT" --host localhost
+METRO_HOST=$(echo "$METRO_URL" | sed 's|https://||')
+# Run Metro as a native Windows process to avoid WSL cross-mount file-watching issues
+cmd.exe /c "set EXPO_PACKAGER_PROXY_URL=$METRO_URL && set REACT_NATIVE_PACKAGER_HOSTNAME=$METRO_HOST && npx expo start --port $PORT --host localhost"

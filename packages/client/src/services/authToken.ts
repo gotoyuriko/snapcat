@@ -62,11 +62,17 @@ function base64Decode(input: string): string {
  * Decode a JWT payload without verifying the signature (the server verifies on
  * every request). Used only to surface userId/email to the UI. Returns {} on error.
  */
-export function decodeJwt(token: string): { userId?: string; email?: string } {
+export function decodeJwt(token: string): { userId?: string; email?: string; exp?: number } {
   try {
     const payload = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
     return JSON.parse(base64Decode(payload));
   } catch {
     return {};
   }
+}
+
+export function isTokenExpired(token: string): boolean {
+  const { exp } = decodeJwt(token);
+  if (!exp) return true;
+  return Date.now() / 1000 >= exp;
 }
