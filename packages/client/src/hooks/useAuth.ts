@@ -10,7 +10,7 @@
  */
 import { create } from 'zustand';
 import { api } from '../services/api';
-import { loadToken, setToken, clearToken, decodeJwt, isTokenExpired, getToken } from '../services/authToken';
+import { loadTokens, setTokens, clearTokens, decodeJwt, isTokenExpired, getToken, setUnauthorizedHandler } from '../services/authToken';
 
 interface TokenResponse {
   accessToken: string;
@@ -44,18 +44,17 @@ export const useAuth = create<AuthState & AuthActions>((set) => ({
   loading: true,
 
   initialize: async () => {
-    const stored = await loadToken();
+    const stored = await loadTokens();
     if (stored && !isTokenExpired(stored)) {
       try {
-        // loadToken() already cached the token so getToken() will return it for apiFetch
         await api.get('/auth/me');
         set({ ...applyToken(stored), loading: false });
       } catch {
-        await clearToken();
+        await clearTokens();
         set({ isAuthenticated: false, userId: null, token: null, loading: false });
       }
     } else {
-      if (stored) await clearToken();
+      if (stored) await clearTokens();
       set({ isAuthenticated: false, userId: null, token: null, loading: false });
     }
   },

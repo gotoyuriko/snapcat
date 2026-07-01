@@ -74,7 +74,7 @@ export function PermissionsScreen() {
     // Navigate to Map screen after permissions are handled
     navigation.reset({
       index: 0,
-      routes: [{ name: 'Map' }],
+      routes: [{ name: 'MainTabs' }],
     });
   }, [location, camera, navigation]);
 

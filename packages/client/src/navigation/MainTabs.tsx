@@ -1,0 +1,115 @@
+import React from 'react';
+import { View, TouchableOpacity, StyleSheet, Text } from 'react-native';
+import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
+import { Ionicons } from '@expo/vector-icons';
+import { MapScreen } from '../screens/MapScreen';
+import { CatpediaScreen } from '../screens/CatpediaScreen';
+import { WalletScreen } from '../screens/WalletScreen';
+
+const Tab = createBottomTabNavigator();
+
+function CustomTabBar({ state, navigation }: BottomTabBarProps) {
+  const isCatpedia = state.index === 1;
+  const isWallet = state.index === 2;
+
+  return (
+    <View style={styles.container}>
+      {/* Catpedia — left */}
+      <TouchableOpacity
+        style={styles.tabItem}
+        onPress={() => navigation.navigate('Catpedia')}
+        activeOpacity={0.7}
+      >
+        <Ionicons name="paw" size={24} color={isCatpedia ? '#FF6B35' : '#9E9E9E'} />
+        <Text style={[styles.label, isCatpedia && styles.labelActive]}>Catpedia</Text>
+      </TouchableOpacity>
+
+      {/* Camera — center FAB */}
+      <View style={styles.cameraWrapper}>
+        <TouchableOpacity
+          style={styles.cameraButton}
+          onPress={() => navigation.getParent()?.navigate('Scan')}
+          activeOpacity={0.85}
+        >
+          <Ionicons name="camera" size={30} color="#fff" />
+        </TouchableOpacity>
+      </View>
+
+      {/* Donation Wallet — right */}
+      <TouchableOpacity
+        style={styles.tabItem}
+        onPress={() => navigation.navigate('Wallet')}
+        activeOpacity={0.7}
+      >
+        <Ionicons name="wallet" size={24} color={isWallet ? '#FF6B35' : '#9E9E9E'} />
+        <Text style={[styles.label, isWallet && styles.labelActive]}>Wallet</Text>
+      </TouchableOpacity>
+    </View>
+  );
+}
+
+export function MainTabs() {
+  return (
+    <Tab.Navigator
+      tabBar={(props) => <CustomTabBar {...props} />}
+      screenOptions={{ headerShown: false }}
+      initialRouteName="Map"
+    >
+      {/* Map is the default home — hidden from the tab bar */}
+      <Tab.Screen name="Map" component={MapScreen} />
+      <Tab.Screen name="Catpedia" component={CatpediaScreen} />
+      <Tab.Screen name="Wallet" component={WalletScreen} />
+    </Tab.Navigator>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    height: 70,
+    borderTopWidth: 1,
+    borderTopColor: '#F0F0F0',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 10,
+  },
+  tabItem: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingBottom: 6,
+  },
+  label: {
+    fontSize: 11,
+    marginTop: 3,
+    color: '#9E9E9E',
+    fontWeight: '500',
+  },
+  labelActive: {
+    color: '#FF6B35',
+  },
+  cameraWrapper: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cameraButton: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: '#FF6B35',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 20,
+    shadowColor: '#FF6B35',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+});

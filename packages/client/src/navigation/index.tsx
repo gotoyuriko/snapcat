@@ -5,22 +5,18 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { useAuth } from '../hooks/useAuth';
 import { LoginScreen } from '../screens/LoginScreen';
 import { PermissionsScreen } from '../screens/PermissionsScreen';
-import { MapScreen } from '../screens/MapScreen';
 import { ScanScreen } from '../screens/ScanScreen';
-import { WalletScreen } from '../screens/WalletScreen';
-import { CatpediaScreen } from '../screens/CatpediaScreen';
 import { CatProfileScreen } from '../screens/CatProfileScreen';
 import { ChatScreen } from '../screens/ChatScreen';
 import { WebARFeedingScreen } from '../screens/WebARFeedingScreen';
+import { MainTabs } from './MainTabs';
 
 export type RootStackParamList = {
   Login: undefined;
-  Map: undefined;
+  MainTabs: undefined;
   Scan: undefined;
   CatProfile: { catId: string };
-  Catpedia: undefined;
   Chat: { catId: string };
-  Wallet: undefined;
   Permissions: undefined;
   WebARFeeding: { catId: string };
 };
@@ -55,15 +51,13 @@ export function RootNavigation() {
           // Authenticated: the full app. First screen handles permissions.
           <>
             <Stack.Screen name="Permissions" component={PermissionsScreen} />
-            <Stack.Screen name="Map" component={MapScreen} />
+            <Stack.Screen name="MainTabs" component={MainTabs} />
             <Stack.Screen name="Scan" component={ScanScreen} />
             <Stack.Screen
               name="CatProfile"
               component={CatProfileScreen}
               options={{ title: 'Cat Profile' }}
             />
-            <Stack.Screen name="Catpedia" component={CatpediaScreen} />
-            <Stack.Screen name="Wallet" component={WalletScreen} options={{ title: 'Wallet' }} />
             <Stack.Screen
               name="Chat"
               component={ChatScreen}
