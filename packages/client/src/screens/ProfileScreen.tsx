@@ -6,9 +6,14 @@ import { useNavigation } from '@react-navigation/native';
 import { useAuth } from '../hooks/useAuth';
 import { api } from '../services/api';
 
-interface MeResponse {
+interface UserStats {
   userId: string;
+  displayName: string;
   email: string;
+  xp: number;
+  catsDiscovered: number;
+  catsOwned: number;
+  rank: number;
 }
 
 interface WalletInfo {
@@ -19,26 +24,31 @@ export function ProfileScreen() {
   const navigation = useNavigation();
   const logout = useAuth((s) => s.logout);
 
-  const [email, setEmail] = useState<string | null>(null);
+  const [stats, setStats] = useState<UserStats | null>(null);
   const [balanceMyr, setBalanceMyr] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
+
+  const loadProfile = useCallback(async () => {
+    setLoading(true);
+    setError(false);
+    try {
+      const [statsData, wallet] = await Promise.all([
+        api.get<UserStats>('/gamification/stats'),
+        api.get<WalletInfo>('/wallet/balance'),
+      ]);
+      setStats(statsData);
+      setBalanceMyr(wallet.balance / 100);
+    } catch {
+      setError(true);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
-    (async () => {
-      try {
-        const [me, wallet] = await Promise.all([
-          api.get<MeResponse>('/auth/me'),
-          api.get<WalletInfo>('/wallet/balance'),
-        ]);
-        setEmail(me.email);
-        setBalanceMyr(wallet.balance / 100);
-      } catch {
-        // Leave fields blank — non-critical for this screen
-      } finally {
-        setLoading(false);
-      }
-    })();
-  }, []);
+    loadProfile();
+  }, [loadProfile]);
 
   const handleLogout = useCallback(() => {
     logout();
@@ -59,33 +69,76 @@ export function ProfileScreen() {
         <View style={styles.headerSpacer} />
       </View>
 
-      <View style={styles.avatarSection}>
-        <View style={styles.avatarCircle}>
-          <Ionicons name="person" size={40} color="#fff" />
+      {loading ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#FF8C00" />
         </View>
-        {loading ? (
-          <ActivityIndicator size="small" color="#FF8C00" style={{ marginTop: 12 }} />
-        ) : (
-          <Text style={styles.email}>{email ?? 'Unknown user'}</Text>
-        )}
-      </View>
+      ) : error ? (
+        <View style={styles.loadingContainer}>
+          <Text style={styles.errorText}>Couldn't load profile.</Text>
+          <TouchableOpacity style={styles.retryButton} onPress={loadProfile}>
+            <Text style={styles.retryButtonText}>Retry</Text>
+          </TouchableOpacity>
+        </View>
+      ) : (
+        <>
+          <View style={styles.avatarSection}>
+            <View style={styles.avatarCircle}>
+              <Ionicons name="person" size={40} color="#fff" />
+            </View>
+            <Text style={styles.displayName}>{stats?.displayName ?? 'Unknown user'}</Text>
+            <Text style={styles.email}>{stats?.email}</Text>
+          </View>
 
-      <View style={styles.card}>
-        <Text style={styles.cardLabel}>Wallet Balance</Text>
-        <Text style={styles.cardValue}>
-          {balanceMyr != null ? `RM ${balanceMyr.toFixed(2)}` : '—'}
-        </Text>
-      </View>
+          <View style={styles.statsGrid}>
+            <View style={styles.statCard}>
+              <View style={styles.statCardInner}>
+                <Ionicons name="star" size={22} color="#FF8C00" />
+                <Text style={styles.statValue}>{stats?.xp ?? 0}</Text>
+                <Text style={styles.statLabel}>Total XP</Text>
+              </View>
+            </View>
+            <View style={styles.statCard}>
+              <View style={styles.statCardInner}>
+                <Ionicons name="trophy" size={22} color="#FF8C00" />
+                <Text style={styles.statValue}>#{stats?.rank ?? '—'}</Text>
+                <Text style={styles.statLabel}>Global Rank</Text>
+              </View>
+            </View>
+            <View style={styles.statCard}>
+              <View style={styles.statCardInner}>
+                <Ionicons name="paw" size={22} color="#FF8C00" />
+                <Text style={styles.statValue}>{stats?.catsDiscovered ?? 0}</Text>
+                <Text style={styles.statLabel}>Cats Discovered</Text>
+              </View>
+            </View>
+            <View style={styles.statCard}>
+              <View style={styles.statCardInner}>
+                <Ionicons name="heart" size={22} color="#FF8C00" />
+                <Text style={styles.statValue}>{stats?.catsOwned ?? 0}</Text>
+                <Text style={styles.statLabel}>Cats Owned</Text>
+              </View>
+            </View>
+          </View>
 
-      <TouchableOpacity
-        style={styles.logoutButton}
-        onPress={handleLogout}
-        accessibilityLabel="Log out"
-        accessibilityRole="button"
-      >
-        <Ionicons name="log-out-outline" size={20} color="#e53935" />
-        <Text style={styles.logoutText}>Log out</Text>
-      </TouchableOpacity>
+          <View style={styles.card}>
+            <Text style={styles.cardLabel}>Wallet Balance</Text>
+            <Text style={styles.cardValue}>
+              {balanceMyr != null ? `RM ${balanceMyr.toFixed(2)}` : '—'}
+            </Text>
+          </View>
+
+          <TouchableOpacity
+            style={styles.logoutButton}
+            onPress={handleLogout}
+            accessibilityLabel="Log out"
+            accessibilityRole="button"
+          >
+            <Ionicons name="log-out-outline" size={20} color="#e53935" />
+            <Text style={styles.logoutText}>Log out</Text>
+          </TouchableOpacity>
+        </>
+      )}
     </SafeAreaView>
   );
 }
@@ -116,6 +169,26 @@ const styles = StyleSheet.create({
   headerSpacer: {
     width: 40,
   },
+  loadingContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  errorText: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 12,
+  },
+  retryButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 24,
+    backgroundColor: '#FF8C00',
+    borderRadius: 8,
+  },
+  retryButtonText: {
+    color: '#fff',
+    fontWeight: '600',
+  },
   avatarSection: {
     alignItems: 'center',
     paddingVertical: 24,
@@ -129,16 +202,54 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginBottom: 12,
   },
-  email: {
-    fontSize: 15,
+  displayName: {
+    fontSize: 18,
     color: '#333',
-    fontWeight: '500',
+    fontWeight: '700',
+  },
+  email: {
+    fontSize: 13,
+    color: '#999',
+    marginTop: 2,
+  },
+  statsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    paddingHorizontal: 12,
+    marginBottom: 4,
+  },
+  statCard: {
+    width: '50%',
+    padding: 6,
+  },
+  statCardInner: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 14,
+    alignItems: 'flex-start',
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 2,
+  },
+  statValue: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#333',
+    marginTop: 6,
+  },
+  statLabel: {
+    fontSize: 12,
+    color: '#999',
+    marginTop: 2,
   },
   card: {
     backgroundColor: '#fff',
     borderRadius: 12,
     padding: 16,
     marginHorizontal: 16,
+    marginTop: 12,
     marginBottom: 16,
     elevation: 2,
     shadowColor: '#000',

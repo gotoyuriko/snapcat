@@ -9,7 +9,9 @@
   "scripts": {
     "build": "npm run build --workspaces",
     "test": "npm run test --workspaces",
-    "lint": "eslint . --ext .ts,.tsx"
+    "lint": "eslint . --ext .ts,.tsx",
+    "dev": "npm run dev --workspace @codingkitty/server",
+    "dev:client": "npm run start --workspace @codingkitty/client"
   },
   "devDependencies": {
     "typescript": "^5.4.0",

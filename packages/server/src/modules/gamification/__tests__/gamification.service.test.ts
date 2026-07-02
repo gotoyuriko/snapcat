@@ -6,14 +6,19 @@ function createMockPrisma() {
   return {
     user: {
       update: jest.fn().mockResolvedValue({}),
+      findUnique: jest.fn(),
+      count: jest.fn().mockResolvedValue(0),
+      findMany: jest.fn().mockResolvedValue([]),
     },
     ownership: {
       findUnique: jest.fn().mockResolvedValue(null),
       create: jest.fn(),
       update: jest.fn(),
+      count: jest.fn().mockResolvedValue(0),
     },
     userCatDiscovery: {
       findUnique: jest.fn().mockResolvedValue(null),
+      count: jest.fn().mockResolvedValue(0),
     },
     cat: {
       findUnique: jest.fn().mockResolvedValue({ id: 'cat-1', name: 'Whiskers' }),
@@ -254,6 +259,62 @@ describe('GamificationService', () => {
         }),
       });
       expect(result.levelUp).toBe(true); // new record at Lvl4 > 0
+    });
+  });
+
+  describe('getUserStats', () => {
+    it('returns aggregate stats and rank for the user', async () => {
+      prisma.user.findUnique.mockResolvedValue({
+        id: 'u1',
+        displayName: 'Alice',
+        email: 'alice@example.com',
+        xp: 150,
+      });
+      prisma.userCatDiscovery.count.mockResolvedValue(5);
+      prisma.ownership.count.mockResolvedValue(2);
+      prisma.user.count.mockResolvedValue(3); // 3 users with more XP
+
+      const stats = await service.getUserStats('u1');
+
+      expect(stats).toEqual({
+        userId: 'u1',
+        displayName: 'Alice',
+        email: 'alice@example.com',
+        xp: 150,
+        catsDiscovered: 5,
+        catsOwned: 2,
+        rank: 4, // 3 users ahead + self
+      });
+      expect(prisma.ownership.count).toHaveBeenCalledWith({
+        where: { userId: 'u1', level: { gte: 1 } },
+      });
+    });
+
+    it('throws when the user does not exist', async () => {
+      prisma.user.findUnique.mockResolvedValue(null);
+
+      await expect(service.getUserStats('missing')).rejects.toThrow('User not found');
+    });
+  });
+
+  describe('getLeaderboard', () => {
+    it('returns users ranked by XP descending', async () => {
+      prisma.user.findMany.mockResolvedValue([
+        { id: 'u1', displayName: 'Alice', xp: 500 },
+        { id: 'u2', displayName: 'Bob', xp: 300 },
+      ]);
+
+      const leaderboard = await service.getLeaderboard(20);
+
+      expect(leaderboard).toEqual([
+        { userId: 'u1', displayName: 'Alice', xp: 500, rank: 1 },
+        { userId: 'u2', displayName: 'Bob', xp: 300, rank: 2 },
+      ]);
+      expect(prisma.user.findMany).toHaveBeenCalledWith({
+        orderBy: { xp: 'desc' },
+        take: 20,
+        select: { id: true, displayName: true, xp: true },
+      });
     });
   });
 });

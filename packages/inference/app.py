@@ -31,6 +31,14 @@ app = FastAPI(title="CodingKitty Inference")
 print("Loading YOLOv8s...", flush=True)
 yolo = YOLO("yolov8s.pt")  # 's' has notably better recall than 'n' on real photos
 
+# Warm up the YOLO inference pipeline. Loading the weights above is not enough:
+# Ultralytics does internal graph/layer-fusion setup lazily on the *first*
+# .predict() call, which otherwise makes the first real scan pay a ~10s+
+# cold-start cost (measured) instead of it happening during container startup,
+# where the healthcheck's start_period already budgets for it.
+print("Warming up YOLOv8s...", flush=True)
+yolo.predict(Image.new("RGB", (224, 224)), conf=DETECT_CONF, verbose=False)
+
 print("Loading MegaDescriptor-T-224...", flush=True)
 embed_model = timm.create_model(
     "hf-hub:BVRA/MegaDescriptor-T-224", pretrained=True, num_classes=0

@@ -19,8 +19,7 @@ import { walletRoutes } from './modules/donation/wallet.routes';
 import { foodItemRoutes } from './modules/donation/food-item.routes';
 import { donationRoutes } from './modules/donation/donation.routes';
 import { leaderboardRoutes } from './modules/leaderboard/leaderboard.routes';
-// TODO: Import remaining route modules
-// import { gamificationRoutes } from './modules/gamification/gamification.routes';
+import { gamificationRoutes } from './modules/gamification/gamification.routes';
 
 const app = express();
 const httpServer = createServer(app);
@@ -52,8 +51,7 @@ app.use('/api/medical-requests', medicalRoutes);
 app.use('/api/wallet', walletRoutes);
 app.use('/api/food-items', foodItemRoutes);
 app.use('/api/donations', donationRoutes);
-// TODO: Mount remaining routes
-// app.use('/api/gamification', gamificationRoutes);
+app.use('/api/gamification', gamificationRoutes);
 
 // Socket.io setup — Initialize chat gateway
 const chatGateway = new ChatGateway(io);

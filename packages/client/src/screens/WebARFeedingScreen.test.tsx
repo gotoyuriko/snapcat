@@ -21,7 +21,9 @@ jest.mock('react-native-webview', () => {
 jest.mock('../services/api', () => ({
   api: {
     post: jest.fn(),
+    get: jest.fn().mockResolvedValue({ inventory: [] }),
   },
+  ApiError: class ApiError extends Error {},
 }));
 
 // Mock Alert

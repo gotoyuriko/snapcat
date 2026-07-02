@@ -60,6 +60,14 @@ export function ScanScreen() {
   const [permission, requestPermission] = useCameraPermissions();
   const [scanState, setScanState] = useState<ScanState>({ type: 'camera' });
   const [confirmLoading, setConfirmLoading] = useState(false);
+  // The native camera session isn't ready the instant CameraView mounts —
+  // calling takePictureAsync() before onCameraReady fires throws "Failed to
+  // capture image", which used to get mislabeled as a network error below.
+  const [cameraReady, setCameraReady] = useState(false);
+  // Guards against a second shutter tap while takePictureAsync() is still in
+  // flight (the camera stays mounted until capture resolves, so the button
+  // remains visible for that window).
+  const capturingRef = useRef(false);
   const { latitude, longitude, refreshLocation } = useLocation();
 
   useEffect(() => {
@@ -67,22 +75,43 @@ export function ScanScreen() {
   }, [refreshLocation]);
 
   const handleCapture = async () => {
-    if (!cameraRef.current) return;
+    if (!cameraRef.current || !cameraReady || capturingRef.current) return;
+    capturingRef.current = true;
 
-    setScanState({ type: 'loading' });
-
+    let photoUri: string;
     try {
-      const photo = await cameraRef.current.takePictureAsync({ quality: 0.6 });
+      // Capture BEFORE switching to the loading state: setting scanState to
+      // 'loading' unmounts the CameraView, and tearing down the native camera
+      // session while takePictureAsync() is in flight throws "Failed to
+      // capture image" on Android.
+      //
+      // skipProcessing avoids a known expo-camera failure mode in Expo Go where
+      // the native post-capture processing step (quality/orientation
+      // adjustment) throws "Failed to capture image" on some Android devices.
+      const photo = await cameraRef.current.takePictureAsync({ quality: 0.6, skipProcessing: true });
+      setScanState({ type: 'loading' });
       if (!photo?.uri) {
         setScanState({ type: 'no_cat' });
         return;
       }
+      photoUri = photo.uri;
+    } catch (err) {
+      console.warn('Camera capture failed:', err);
+      setScanState({
+        type: 'error',
+        message: 'Failed to capture photo. Please try again.',
+      });
+      return;
+    } finally {
+      capturingRef.current = false;
+    }
 
+    try {
       // Server expects multipart/form-data: a `photo` image file + `userGPS` JSON.
       const userGPS: UserGPS = { lat: latitude ?? 0, lng: longitude ?? 0 };
       const form = new FormData();
       form.append('photo', {
-        uri: photo.uri,
+        uri: photoUri,
         name: 'scan.jpg',
         type: 'image/jpeg',
       } as unknown as Blob);
@@ -163,13 +192,16 @@ export function ScanScreen() {
         });
       }
     } catch {
-      setScanState({ type: 'camera' });
+      handleRetry();
     } finally {
       setConfirmLoading(false);
     }
   };
 
   const handleRetry = () => {
+    // A fresh CameraView mounts when we return to the camera state; its
+    // readiness must be re-confirmed via onCameraReady before capture works.
+    setCameraReady(false);
     setScanState({ type: 'camera' });
   };
 
@@ -356,7 +388,12 @@ export function ScanScreen() {
   // Default: Camera view
   return (
     <View style={styles.container}>
-      <CameraView ref={cameraRef} style={styles.camera} facing="back" />
+      <CameraView
+        ref={cameraRef}
+        style={styles.camera}
+        facing="back"
+        onCameraReady={() => setCameraReady(true)}
+      />
       {/* CameraView does not support children — render the overlay as an
           absolutely-positioned sibling on top. box-none lets taps fall through
           to the camera everywhere except the buttons themselves. */}
@@ -364,8 +401,16 @@ export function ScanScreen() {
         <TouchableOpacity style={styles.backButton} onPress={handleBack}>
           <Text style={styles.backButtonText}>✕</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.captureButton} onPress={handleCapture}>
-          <View style={styles.captureInner} />
+        <TouchableOpacity
+          style={[styles.captureButton, !cameraReady && styles.captureButtonDisabled]}
+          onPress={handleCapture}
+          disabled={!cameraReady}
+        >
+          {cameraReady ? (
+            <View style={styles.captureInner} />
+          ) : (
+            <ActivityIndicator size="small" color="#fff" />
+          )}
         </TouchableOpacity>
       </View>
     </View>
@@ -417,6 +462,9 @@ const styles = StyleSheet.create({
     height: 56,
     borderRadius: 28,
     backgroundColor: '#fff',
+  },
+  captureButtonDisabled: {
+    opacity: 0.5,
   },
   permissionText: {
     color: '#fff',

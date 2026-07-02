@@ -1,4 +1,4 @@
-import React, { useCallback, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -10,7 +10,7 @@ import {
 import { WebView, WebViewMessageEvent } from 'react-native-webview';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation';
-import { api } from '../services/api';
+import { api, ApiError } from '../services/api';
 
 const WEBAR_BASE_URL = 'https://ar.codingkitty.app/feed';
 
@@ -40,7 +40,11 @@ export function WebARFeedingScreen({ route, navigation }: Props) {
           { text: 'OK', onPress: () => navigation.goBack() },
         ]);
       } catch (error) {
-        Alert.alert('Error', 'Failed to process donation. Please try again.');
+        const message =
+          error instanceof ApiError && error.serverMessage
+            ? error.serverMessage
+            : 'Failed to process donation. Please try again.';
+        Alert.alert('Error', message);
       } finally {
         setIsDonating(false);
       }
@@ -125,11 +129,17 @@ interface FallbackDonationScreenProps {
   onCancel: () => void;
 }
 
-const FOOD_ITEMS = [
-  { id: 'kibble', name: 'Cat Kibble', price: 'RM 1' },
-  { id: 'snack', name: 'Cat Snack', price: 'RM 5' },
-  { id: 'tuna', name: 'Tuna Can', price: 'RM 10' },
-];
+/** Slice of the GET /food-items response this screen needs (same shape as WalletScreen). */
+interface InventoryItem {
+  foodItemId: string;
+  name: string;
+  priceMyr: number;
+  quantity: number;
+}
+
+interface FoodItemsResponse {
+  inventory: InventoryItem[];
+}
 
 function FallbackDonationScreen({
   catId,
@@ -138,29 +148,105 @@ function FallbackDonationScreen({
   onCancel,
 }: FallbackDonationScreenProps) {
   const [selectedItem, setSelectedItem] = useState<string | null>(null);
+  const [inventory, setInventory] = useState<InventoryItem[]>([]);
+  const [loadingInventory, setLoadingInventory] = useState(true);
+  const [inventoryError, setInventoryError] = useState(false);
+
+  const fetchInventory = useCallback(async () => {
+    setLoadingInventory(true);
+    setInventoryError(false);
+    try {
+      const data = await api.get<FoodItemsResponse>('/food-items');
+      setInventory(data.inventory.filter((entry) => entry.quantity > 0));
+    } catch {
+      setInventoryError(true);
+    } finally {
+      setLoadingInventory(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchInventory();
+  }, [fetchInventory]);
+
+  if (loadingInventory) {
+    return (
+      <View style={styles.fallbackContainer}>
+        <ActivityIndicator size="large" color="#FF6B6B" />
+        <Text style={styles.fallbackSubtitle}>Loading your food inventory...</Text>
+      </View>
+    );
+  }
+
+  if (inventoryError) {
+    return (
+      <View style={styles.fallbackContainer}>
+        <Text style={styles.fallbackTitle}>Feed This Cat</Text>
+        <Text style={styles.fallbackSubtitle}>
+          Could not load your food inventory. Check your connection and try again.
+        </Text>
+        <TouchableOpacity
+          style={styles.donateButton}
+          onPress={fetchInventory}
+          accessibilityRole="button"
+          accessibilityLabel="Retry"
+        >
+          <Text style={styles.donateButtonText}>Retry</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.cancelButton}
+          onPress={onCancel}
+          accessibilityRole="button"
+          accessibilityLabel="Cancel"
+        >
+          <Text style={styles.cancelButtonText}>Cancel</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
+  if (inventory.length === 0) {
+    return (
+      <View style={styles.fallbackContainer}>
+        <Text style={styles.fallbackTitle}>Feed This Cat</Text>
+        <Text style={styles.fallbackSubtitle}>
+          You have no food in your inventory. Purchase food from the Wallet
+          screen first, then come back to feed this cat.
+        </Text>
+        <TouchableOpacity
+          style={styles.cancelButton}
+          onPress={onCancel}
+          accessibilityRole="button"
+          accessibilityLabel="Go Back"
+        >
+          <Text style={styles.cancelButtonText}>Go Back</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.fallbackContainer}>
       <Text style={styles.fallbackTitle}>Feed This Cat</Text>
       <Text style={styles.fallbackSubtitle}>
-        AR experience unavailable. Choose a food item to donate:
+        Choose a food item from your inventory to donate:
       </Text>
 
       <View style={styles.foodList}>
-        {FOOD_ITEMS.map((item) => (
+        {inventory.map((item) => (
           <TouchableOpacity
-            key={item.id}
+            key={item.foodItemId}
             style={[
               styles.foodItem,
-              selectedItem === item.id && styles.foodItemSelected,
+              selectedItem === item.foodItemId && styles.foodItemSelected,
             ]}
-            onPress={() => setSelectedItem(item.id)}
+            onPress={() => setSelectedItem(item.foodItemId)}
             accessibilityRole="radio"
-            accessibilityState={{ selected: selectedItem === item.id }}
-            accessibilityLabel={`${item.name}, ${item.price}`}
+            accessibilityState={{ selected: selectedItem === item.foodItemId }}
+            accessibilityLabel={`${item.name}, ${item.quantity} in inventory`}
           >
             <Text style={styles.foodItemName}>{item.name}</Text>
-            <Text style={styles.foodItemPrice}>{item.price}</Text>
+            <Text style={styles.foodItemQuantity}>×{item.quantity}</Text>
           </TouchableOpacity>
         ))}
       </View>
@@ -179,7 +265,7 @@ function FallbackDonationScreen({
         {isDonating ? (
           <ActivityIndicator color="#fff" />
         ) : (
-          <Text style={styles.donateButtonText}>Confirm Donation</Text>
+          <Text style={styles.donateButtonText}>Feed Cat</Text>
         )}
       </TouchableOpacity>
 
@@ -258,9 +344,10 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#333',
   },
-  foodItemPrice: {
+  foodItemQuantity: {
     fontSize: 14,
     color: '#666',
+    fontWeight: '600',
   },
   donateButton: {
     width: '100%',

@@ -49,6 +49,8 @@ function distanceMeters(
 }
 
 const REFETCH_DISTANCE_THRESHOLD = 200; // meters
+const RECENTER_ANIMATION_MS = 500;
+const LOCATING_TIMEOUT_MS = 1500;
 
 export function MapScreen() {
   const navigation = useNavigation<NavigationProp>();
@@ -57,7 +59,6 @@ export function MapScreen() {
   const {
     latitude,
     longitude,
-    loading: locationLoading,
     error: locationError,
     refreshLocation,
   } = useLocation();
@@ -72,6 +73,20 @@ export function MapScreen() {
   // Only auto-recenter once, on the first GPS fix — avoid yanking the map
   // out from under the user while they're panning around later.
   const hasAutoRecentered = useRef(false);
+
+  // Covers the map with a small "Locating you..." overlay so the fallback
+  // coordinate is never visibly shown before we jump to the real one. Capped
+  // at LOCATING_TIMEOUT_MS so a slow/stuck GPS fix doesn't block the map
+  // indefinitely — same failure mode as the old blocking spinner we removed.
+  const [locating, setLocating] = useState(true);
+  const locatingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    locatingTimeoutRef.current = setTimeout(() => setLocating(false), LOCATING_TIMEOUT_MS);
+    return () => {
+      if (locatingTimeoutRef.current) clearTimeout(locatingTimeoutRef.current);
+    };
+  }, []);
 
   // Fetch the device's current location on mount so the map centers on the
   // user instead of the fallback coordinate.
@@ -89,8 +104,12 @@ export function MapScreen() {
         latitudeDelta: 0.01,
         longitudeDelta: 0.01,
       },
-      500,
+      RECENTER_ANIMATION_MS,
     );
+    // Keep the overlay up until the pan animation finishes so the user never
+    // sees the fallback location before the jump.
+    if (locatingTimeoutRef.current) clearTimeout(locatingTimeoutRef.current);
+    setTimeout(() => setLocating(false), RECENTER_ANIMATION_MS);
   }, [latitude, longitude]);
 
   const recenterOnUser = useCallback(() => {
@@ -102,7 +121,7 @@ export function MapScreen() {
           latitudeDelta: 0.01,
           longitudeDelta: 0.01,
         },
-        500,
+        RECENTER_ANIMATION_MS,
       );
     } else {
       refreshLocation();
@@ -172,16 +191,6 @@ export function MapScreen() {
     );
   }
 
-  // Loading state while getting initial location
-  if (locationLoading && latitude == null) {
-    return (
-      <View style={styles.container}>
-        <ActivityIndicator size="large" color="#FF8C00" />
-        <Text style={styles.loadingText}>Getting your location...</Text>
-      </View>
-    );
-  }
-
   const initialRegion = {
     latitude: latitude ?? 37.7749,
     longitude: longitude ?? -122.4194,
@@ -209,6 +218,16 @@ export function MapScreen() {
           />
         ))}
       </MapView>
+
+      {/* Locating overlay — hides the fallback coordinate until we've panned
+          to the real GPS fix (or the timeout gives up and reveals the map
+          as-is), so the user never sees the map jump from one place to another. */}
+      {locating && (
+        <View style={styles.locatingOverlay}>
+          <ActivityIndicator size="large" color="#FF8C00" />
+          <Text style={styles.locatingText}>Locating you...</Text>
+        </View>
+      )}
 
       {/* Loading indicator for pin fetching */}
       {loadingPins && (
@@ -291,6 +310,17 @@ const styles = StyleSheet.create({
   },
   map: {
     ...StyleSheet.absoluteFillObject,
+  },
+  locatingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: '#fff',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  locatingText: {
+    marginTop: 12,
+    fontSize: 14,
+    color: '#666',
   },
   recenterBtn: {
     position: 'absolute',

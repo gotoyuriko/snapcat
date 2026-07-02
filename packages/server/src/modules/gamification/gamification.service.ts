@@ -276,6 +276,55 @@ export class GamificationService {
   calculateLevel(xp: number): number {
     return calculateLevel(xp);
   }
+
+  /**
+   * Global profile stats for a user: total XP, cats discovered/owned, and
+   * rank among all users by total XP. Powers the client Profile screen.
+   */
+  async getUserStats(userId: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, displayName: true, email: true, xp: true },
+    });
+
+    if (!user) {
+      throw new Error('User not found');
+    }
+
+    const [catsDiscovered, catsOwned, higherXpCount] = await Promise.all([
+      this.prisma.userCatDiscovery.count({ where: { userId } }),
+      this.prisma.ownership.count({ where: { userId, level: { gte: 1 } } }),
+      this.prisma.user.count({ where: { xp: { gt: user.xp } } }),
+    ]);
+
+    return {
+      userId: user.id,
+      displayName: user.displayName,
+      email: user.email,
+      xp: user.xp,
+      catsDiscovered,
+      catsOwned,
+      rank: higherXpCount + 1,
+    };
+  }
+
+  /**
+   * Global leaderboard — top users ranked by total XP.
+   */
+  async getLeaderboard(limit = 20) {
+    const users = await this.prisma.user.findMany({
+      orderBy: { xp: 'desc' },
+      take: limit,
+      select: { id: true, displayName: true, xp: true },
+    });
+
+    return users.map((user, index) => ({
+      userId: user.id,
+      displayName: user.displayName,
+      xp: user.xp,
+      rank: index + 1,
+    }));
+  }
 }
 
 /** Returns the start of the current UTC day */
