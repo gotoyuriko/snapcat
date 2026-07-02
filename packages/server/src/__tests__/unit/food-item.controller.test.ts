@@ -50,7 +50,7 @@ describe('FoodItemController', () => {
       expect(res.body.error).toBe('Unauthorized');
     });
 
-    it('returns 200 with food items, inventory, and totalCreditCents', async () => {
+    it('returns 200 with client-shaped food items and inventory (MYR, flattened)', async () => {
       const mockFoodItems = [
         { id: 'item-1', name: 'Cat Kibble', priceCents: 100, description: 'Basic kibble', imageUrl: null },
         { id: 'item-2', name: 'Cat Snack', priceCents: 500, description: 'Tasty snack', imageUrl: null },
@@ -71,9 +71,14 @@ describe('FoodItemController', () => {
       await controller.getAll(req as Request, res as Response);
 
       expect(res.statusCode).toBe(200);
-      expect(res.body.foodItems).toEqual(mockFoodItems);
-      expect(res.body.inventory).toEqual(mockInventory.inventory);
-      expect(res.body.totalCreditCents).toBe(300);
+      expect(res.body.foodItems).toEqual([
+        { id: 'item-1', name: 'Cat Kibble', priceMyr: 1, description: 'Basic kibble' },
+        { id: 'item-2', name: 'Cat Snack', priceMyr: 5, description: 'Tasty snack' },
+      ]);
+      expect(res.body.inventory).toEqual([
+        { foodItemId: 'item-1', name: 'Cat Kibble', priceMyr: 1, quantity: 3 },
+      ]);
+      expect(res.body.totalCreditMyr).toBe(3);
     });
 
     it('returns 500 if service throws an error', async () => {

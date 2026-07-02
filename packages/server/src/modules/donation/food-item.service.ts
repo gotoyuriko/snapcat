@@ -84,4 +84,63 @@ export class FoodItemService {
 
     return inventoryRecord;
   }
+
+  /**
+   * Purchase a cart of food items in one atomic transaction: validates every
+   * item, debits the wallet once for the combined total, and upserts
+   * inventory for each item. Throws "Food item not found" if any
+   * foodItemId is invalid, or "Insufficient wallet balance" if the combined
+   * total exceeds the wallet balance (no items are purchased in that case).
+   */
+  async purchaseMultiple(
+    userId: string,
+    items: { foodItemId: string; quantity: number }[],
+  ) {
+    if (items.length === 0) {
+      throw new Error('No items to purchase');
+    }
+    if (items.some((item) => item.quantity < 1)) {
+      throw new Error('Quantity must be at least 1');
+    }
+
+    return prisma.$transaction(async (tx) => {
+      const foodItemIds = [...new Set(items.map((item) => item.foodItemId))];
+      const foodItems = await tx.foodItem.findMany({ where: { id: { in: foodItemIds } } });
+
+      if (foodItems.length !== foodItemIds.length) {
+        throw new Error('Food item not found');
+      }
+
+      const priceById = new Map(foodItems.map((item) => [item.id, item.priceCents]));
+      const totalCostCents = items.reduce(
+        (sum, item) => sum + (priceById.get(item.foodItemId) ?? 0) * item.quantity,
+        0,
+      );
+
+      // Atomically debit wallet, rejecting if balance would go negative; returns the post-debit balance
+      const debited = await tx.$queryRaw<{ walletBalance: number }[]>`
+        UPDATE "User"
+        SET "walletBalance" = "walletBalance" - ${totalCostCents}
+        WHERE "id" = ${userId} AND "walletBalance" >= ${totalCostCents}
+        RETURNING "walletBalance"
+      `;
+
+      if (debited.length === 0) {
+        throw new Error('Insufficient wallet balance');
+      }
+
+      const inventory = [];
+      for (const item of items) {
+        const record = await tx.userInventory.upsert({
+          where: { userId_foodItemId: { userId, foodItemId: item.foodItemId } },
+          update: { quantity: { increment: item.quantity } },
+          create: { userId, foodItemId: item.foodItemId, quantity: item.quantity },
+          include: { foodItem: true },
+        });
+        inventory.push(record);
+      }
+
+      return { inventory, newBalanceCents: debited[0].walletBalance };
+    });
+  }
 }

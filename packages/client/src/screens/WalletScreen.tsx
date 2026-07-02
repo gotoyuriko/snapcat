@@ -9,7 +9,6 @@ import {
   ActivityIndicator,
   Alert,
   ScrollView,
-  Linking,
 } from 'react-native';
 import { api } from '../services/api';
 
@@ -30,16 +29,21 @@ interface InventoryItem {
 }
 
 interface WalletInfo {
-  balanceMyr: number;
+  balance: number; // MYR cents
 }
 
-interface TopUpResponse {
-  paymentUrl: string;
+interface TestTopUpResponse {
+  balance: number; // MYR cents
 }
 
 interface PurchaseResponse {
   success: boolean;
   newBalanceMyr: number;
+}
+
+interface FoodItemsResponse {
+  foodItems: FoodItem[];
+  inventory: InventoryItem[];
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -71,8 +75,8 @@ export function WalletScreen() {
 
   const fetchBalance = useCallback(async () => {
     try {
-      const data = await api.get<WalletInfo>('/wallet');
-      setBalance(data.balanceMyr);
+      const data = await api.get<WalletInfo>('/wallet/balance');
+      setBalance(data.balance / 100);
     } catch {
       // Wallet may not exist yet — default to 0
       setBalance(0);
@@ -83,22 +87,14 @@ export function WalletScreen() {
 
   const fetchFoodItems = useCallback(async () => {
     try {
-      const data = await api.get<FoodItem[]>('/food-items');
-      setFoodItems(data);
+      const data = await api.get<FoodItemsResponse>('/food-items');
+      setFoodItems(data.foodItems);
+      setInventory(data.inventory);
     } catch {
       setFoodItems([]);
-    } finally {
-      setLoadingItems(false);
-    }
-  }, []);
-
-  const fetchInventory = useCallback(async () => {
-    try {
-      const data = await api.get<InventoryItem[]>('/food-items/inventory');
-      setInventory(data);
-    } catch {
       setInventory([]);
     } finally {
+      setLoadingItems(false);
       setLoadingInventory(false);
     }
   }, []);
@@ -106,42 +102,31 @@ export function WalletScreen() {
   useEffect(() => {
     fetchBalance();
     fetchFoodItems();
-    fetchInventory();
-  }, [fetchBalance, fetchFoodItems, fetchInventory]);
+  }, [fetchBalance, fetchFoodItems]);
 
   // ─── Top-Up Handler ───────────────────────────────────────────────────────
 
+  // TEMPORARY: hits the payment-gate-bypassing test top-up endpoint so the
+  // purchase flow can be tested without a real payment gateway. An amount of
+  // 0 resets the balance to 0 (handy for re-testing without restarting the
+  // app, since the wallet is otherwise persisted in the database).
   const handleTopUp = async () => {
     const amount = parseFloat(topUpAmount);
-    if (isNaN(amount) || amount <= 0) {
-      Alert.alert('Invalid Amount', 'Please enter a valid amount in MYR.');
+    if (isNaN(amount) || amount < 0) {
+      Alert.alert('Invalid Amount', 'Please enter a valid amount in MYR (0 resets the wallet).');
       return;
     }
 
     setTopUpLoading(true);
     try {
-      const response = await api.post<TopUpResponse>('/wallet/topup', {
-        amountMyr: amount,
+      const response = await api.post<TestTopUpResponse>('/wallet/topup/test', {
+        amountCents: Math.round(amount * 100),
       });
 
-      // Open payment URL in the device's browser (in-app browser)
-      if (response.paymentUrl) {
-        const supported = await Linking.canOpenURL(response.paymentUrl);
-        if (supported) {
-          await Linking.openURL(response.paymentUrl);
-        } else {
-          Alert.alert('Error', 'Cannot open payment page. Please try again.');
-        }
-      }
-
+      setBalance(response.balance / 100);
       setTopUpAmount('');
-      // Balance will update after payment webhook is processed;
-      // refresh balance after a short delay for UX
-      setTimeout(() => {
-        fetchBalance();
-      }, 3000);
     } catch {
-      Alert.alert('Top-Up Failed', 'Unable to initiate top-up. Please try again.');
+      Alert.alert('Top-Up Failed', 'Unable to update wallet. Please try again.');
     } finally {
       setTopUpLoading(false);
     }
@@ -205,8 +190,8 @@ export function WalletScreen() {
         // Update balance from server response
         setBalance(response.newBalanceMyr);
         setCart({});
-        // Refresh inventory to show newly purchased items
-        fetchInventory();
+        // Refresh catalogue + inventory to show newly purchased items
+        fetchFoodItems();
         Alert.alert('Purchase Successful', 'Items added to your inventory!');
       }
     } catch {

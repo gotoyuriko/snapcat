@@ -9,6 +9,11 @@ const topUpSchema = z.object({
   amountCents: z.number().int().positive().max(100_000_00), // Max RM 100,000
 });
 
+/** Zod schema for the temporary test top-up (0 = reset balance) */
+const testTopUpSchema = z.object({
+  amountCents: z.number().int().min(0).max(100_000_00),
+});
+
 /** Zod schema for webhook payload validation */
 const webhookSchema = z.object({
   intentId: z.string().min(1),
@@ -62,6 +67,47 @@ export class WalletController {
       const { paymentUrl, intentId } = await this.walletService.initiateTopUp(userId, amountCents);
 
       res.status(200).json({ paymentUrl, intentId });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Internal server error';
+      res.status(500).json({ error: message });
+    }
+  }
+
+  /**
+   * POST /wallet/topup/test
+   * TEMPORARY: credits (or resets, if amountCents is 0) the wallet directly,
+   * bypassing the payment gateway. For testing the purchase flow only —
+   * remove once the real payment gate is wired up. Disabled in production.
+   */
+  async testTopUp(req: Request, res: Response): Promise<void> {
+    try {
+      if (process.env.NODE_ENV === 'production') {
+        res.status(403).json({ error: 'Test top-up is disabled in production' });
+        return;
+      }
+
+      const userId = req.user?.userId;
+      if (!userId) {
+        res.status(401).json({ error: 'Unauthorized' });
+        return;
+      }
+
+      const parsed = testTopUpSchema.safeParse(req.body);
+      if (!parsed.success) {
+        res.status(400).json({ error: 'Invalid request', details: parsed.error.issues });
+        return;
+      }
+
+      const { amountCents } = parsed.data;
+
+      if (amountCents === 0) {
+        await this.walletService.setBalance(userId, 0);
+      } else {
+        await this.walletService.credit(userId, amountCents, 'test-topup');
+      }
+
+      const balance = await this.walletService.getBalance(userId);
+      res.status(200).json({ balance });
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Internal server error';
       res.status(500).json({ error: message });

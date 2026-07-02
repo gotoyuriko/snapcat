@@ -64,6 +64,18 @@ export class WalletService {
   }
 
   /**
+   * Directly set the user's wallet balance, bypassing credit/debit deltas.
+   * TEMPORARY: used only by the test top-up endpoint while the real payment
+   * gateway integration is pending. Not used by the production top-up flow.
+   */
+  async setBalance(userId: string, amountCents: number): Promise<void> {
+    await prisma.user.update({
+      where: { id: userId },
+      data: { walletBalance: amountCents },
+    });
+  }
+
+  /**
    * Initiate a wallet top-up via the SANDBOX payment gateway.
    * Returns a payment URL and intent ID.
    */
