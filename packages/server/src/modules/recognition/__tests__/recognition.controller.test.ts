@@ -1,19 +1,24 @@
 import { Request, Response } from 'express';
 import { RecognitionController } from '../recognition.controller';
 import { RecognitionService } from '../recognition.service';
+import { PhotoStorageService } from '../photo-storage.service';
 
 // Mock the service dependencies so the controller can be instantiated standalone
 jest.mock('../recognition.service');
 jest.mock('../yolo.client');
 jest.mock('../megadescriptor.client');
 jest.mock('../vector.service');
+jest.mock('../photo-storage.service');
 jest.mock('@prisma/client', () => ({
   PrismaClient: jest.fn().mockImplementation(() => ({})),
 }));
 
+const STUB_PHOTO_URL = 'http://localhost:3000/api/recognition/photos/stub.jpg';
+
 describe('RecognitionController', () => {
   let controller: RecognitionController;
   let mockService: jest.Mocked<RecognitionService>;
+  let mockPhotoStorageService: jest.Mocked<PhotoStorageService>;
   let mockReq: any;
   let mockRes: Partial<Response>;
   let statusMock: jest.Mock;
@@ -27,7 +32,13 @@ describe('RecognitionController', () => {
       confirmMatch: jest.fn(),
     } as unknown as jest.Mocked<RecognitionService>;
 
-    controller = new RecognitionController(mockService);
+    mockPhotoStorageService = {
+      storePhoto: jest.fn().mockResolvedValue('stub.jpg'),
+      buildUrl: jest.fn().mockReturnValue(STUB_PHOTO_URL),
+      resolvePhotoPath: jest.fn(),
+    } as unknown as jest.Mocked<PhotoStorageService>;
+
+    controller = new RecognitionController(mockService, mockPhotoStorageService);
 
     jsonMock = jest.fn();
     statusMock = jest.fn().mockReturnValue({ json: jsonMock });
@@ -35,6 +46,8 @@ describe('RecognitionController', () => {
     mockReq = {
       user: { userId: 'user-123', email: 'test@example.com' },
       body: {},
+      protocol: 'http',
+      get: jest.fn().mockReturnValue('localhost:3000'),
     };
 
     mockRes = {
@@ -102,6 +115,7 @@ describe('RecognitionController', () => {
         Buffer.from('fake-photo'),
         { lat: 3.14, lng: 101.7 },
         'user-123',
+        STUB_PHOTO_URL,
       );
       expect(statusMock).toHaveBeenCalledWith(422);
       expect(jsonMock).toHaveBeenCalledWith({
@@ -164,6 +178,7 @@ describe('RecognitionController', () => {
           registeredAt: new Date(),
         },
         embedding: [0.5, 0.5, 0.5],
+        photoUrl: '',
       };
       mockService.recognizeCat.mockResolvedValue(confirmResult);
 
@@ -259,6 +274,7 @@ describe('RecognitionController', () => {
         Buffer.from('fake-photo'),
         { lat: 3.14, lng: 101.7 },
         'user-123',
+        STUB_PHOTO_URL,
       );
     });
   });

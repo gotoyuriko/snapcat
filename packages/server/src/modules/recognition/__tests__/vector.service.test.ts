@@ -18,18 +18,22 @@ describe('VectorService', () => {
   });
 
   describe('store', () => {
-    it('should update the cat embedding using raw SQL', async () => {
+    it('should insert a new gallery embedding (not overwrite) using raw SQL', async () => {
       const catId = 'cat-uuid-123';
       const embedding = [0.1, 0.2, 0.3];
 
       await service.store(catId, embedding);
 
-      expect(mockPrisma.$executeRawUnsafe).toHaveBeenCalledTimes(1);
-      expect(mockPrisma.$executeRawUnsafe).toHaveBeenCalledWith(
-        `UPDATE "Cat" SET embedding = $1::vector WHERE id = $2`,
-        '[0.1,0.2,0.3]',
-        catId,
-      );
+      // Two statements: insert the new embedding, then prune old ones beyond the cap.
+      expect(mockPrisma.$executeRawUnsafe).toHaveBeenCalledTimes(2);
+      const [insertSql, insertCatId, insertVector] = mockPrisma.$executeRawUnsafe.mock.calls[0];
+      expect(insertSql).toContain('INSERT INTO "CatEmbedding"');
+      expect(insertCatId).toBe(catId);
+      expect(insertVector).toBe('[0.1,0.2,0.3]');
+
+      const [pruneSql, pruneCatId] = mockPrisma.$executeRawUnsafe.mock.calls[1];
+      expect(pruneSql).toContain('DELETE FROM "CatEmbedding"');
+      expect(pruneCatId).toBe(catId);
     });
 
     it('should format embedding array as pgvector string', async () => {
@@ -37,7 +41,7 @@ describe('VectorService', () => {
 
       await service.store('some-id', embedding);
 
-      const vectorArg = mockPrisma.$executeRawUnsafe.mock.calls[0][1];
+      const vectorArg = mockPrisma.$executeRawUnsafe.mock.calls[0][2];
       expect(vectorArg).toBe('[1,-0.5,0,0.75]');
     });
   });

@@ -29,6 +29,18 @@ export const config = {
   inference: {
     url: process.env.INFERENCE_URL || 'http://localhost:8000',
   },
+  recognition: {
+    /**
+     * Cosine-similarity thresholds for cat re-identification. Two photos of
+     * the same real cat rarely score near 1.0 (different crop/pose/lighting
+     * per scan), so confirmThreshold is kept generous — genuine rescans
+     * should at least reach "confirm_needed" rather than silently
+     * registering as a duplicate new cat. Tune via env once real usage data
+     * is available.
+     */
+    matchThreshold: parseFloat(process.env.RECOGNITION_MATCH_THRESHOLD || '0.85'),
+    confirmThreshold: parseFloat(process.env.RECOGNITION_CONFIRM_THRESHOLD || '0.5'),
+  },
   yolo: {
     apiUrl: process.env.YOLO_API_URL || 'https://api.ultralytics.com/v1/predict',
     apiKey: process.env.YOLO_API_KEY || '',

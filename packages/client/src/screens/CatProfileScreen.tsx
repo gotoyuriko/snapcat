@@ -7,13 +7,15 @@ import {
   Image,
   TouchableOpacity,
   ActivityIndicator,
+  TextInput,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RouteProp } from '@react-navigation/native';
 import type { RootStackParamList } from '../navigation';
-import { api } from '../services/api';
+import { api, ApiError } from '../services/api';
 
 // --- Types ---
 
@@ -246,6 +248,9 @@ export function CatProfileScreen() {
   const [profileData, setProfileData] = useState<CatProfileData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [editingName, setEditingName] = useState(false);
+  const [nameDraft, setNameDraft] = useState('');
+  const [savingName, setSavingName] = useState(false);
 
   const fetchProfile = useCallback(async () => {
     setLoading(true);
@@ -266,6 +271,62 @@ export function CatProfileScreen() {
 
   const handleFeedCat = () => {
     navigation.navigate('WebARFeeding', { catId });
+  };
+
+  const startEditName = () => {
+    setNameDraft(profileData?.cat.name ?? '');
+    setEditingName(true);
+  };
+
+  const cancelEditName = () => {
+    setEditingName(false);
+  };
+
+  const saveName = async () => {
+    const trimmed = nameDraft.trim();
+    if (!trimmed) {
+      Alert.alert('Name required', 'Please enter a name for this cat.');
+      return;
+    }
+    setSavingName(true);
+    try {
+      await api.patch<{ id: string; name: string }>(`/cats/${catId}`, { name: trimmed });
+      setProfileData((prev) => (prev ? { ...prev, cat: { ...prev.cat, name: trimmed } } : prev));
+      setEditingName(false);
+    } catch (err) {
+      Alert.alert(
+        'Could not rename cat',
+        err instanceof ApiError ? err.friendlyMessage : 'Please try again.',
+      );
+    } finally {
+      setSavingName(false);
+    }
+  };
+
+  const handleBack = () => {
+    if (editingName) {
+      Alert.alert(
+        'Discard name change?',
+        'You started editing this cat\'s name but haven\'t saved it. Leaving now will lose that change.',
+        [
+          { text: 'Keep Editing', style: 'cancel' },
+          { text: 'Discard', style: 'destructive', onPress: () => navigation.goBack() },
+        ],
+      );
+      return;
+    }
+    if (!profileData?.cat.name) {
+      Alert.alert(
+        'This cat has no name yet',
+        'Give it a name so other users can recognize it. Leave without naming it?',
+        [
+          { text: 'Name It', style: 'cancel' },
+          { text: 'Leave Anyway', style: 'destructive', onPress: () => navigation.goBack() },
+        ],
+      );
+      return;
+    }
+    navigation.goBack();
   };
 
   const handleRequestMedical = () => {
@@ -308,17 +369,17 @@ export function CatProfileScreen() {
   if (!profileData.discovered) {
     return (
       <SafeAreaView style={styles.scrollContainer} edges={['top']}>
-      <ScrollView style={styles.scrollBody} contentContainerStyle={styles.scrollContent}>
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => navigation.goBack()}
-          accessibilityLabel="Go back"
-          accessibilityRole="button"
-        >
-          <Text style={styles.backButtonText}>← Back</Text>
-        </TouchableOpacity>
-        <UndiscoveredCatView cat={profileData.cat} />
-      </ScrollView>
+        <ScrollView style={styles.scrollContainer} contentContainerStyle={styles.scrollContent}>
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={() => navigation.goBack()}
+            accessibilityLabel="Go back"
+            accessibilityRole="button"
+          >
+            <Text style={styles.backButtonText}>← Back</Text>
+          </TouchableOpacity>
+          <UndiscoveredCatView cat={profileData.cat} />
+        </ScrollView>
       </SafeAreaView>
     );
   }
@@ -331,11 +392,11 @@ export function CatProfileScreen() {
 
   return (
     <SafeAreaView style={styles.scrollContainer} edges={['top']}>
-    <ScrollView style={styles.scrollBody} contentContainerStyle={styles.scrollContent}>
+    <ScrollView style={styles.scrollContainer} contentContainerStyle={styles.scrollContent}>
       {/* Back button */}
       <TouchableOpacity
         style={styles.backButton}
-        onPress={() => navigation.goBack()}
+        onPress={handleBack}
         accessibilityLabel="Go back"
         accessibilityRole="button"
       >
@@ -351,7 +412,52 @@ export function CatProfileScreen() {
             <Text style={styles.catPhotoPlaceholderText}>🐱</Text>
           </View>
         )}
-        <Text style={styles.catName}>{cat.name ?? 'Unnamed Cat'}</Text>
+        {editingName ? (
+          <View style={styles.nameEditRow}>
+            <TextInput
+              style={styles.nameInput}
+              value={nameDraft}
+              onChangeText={setNameDraft}
+              placeholder="Cat name"
+              placeholderTextColor="#999"
+              maxLength={50}
+              autoFocus
+              editable={!savingName}
+            />
+            <TouchableOpacity
+              style={styles.nameSaveButton}
+              onPress={saveName}
+              disabled={savingName}
+              accessibilityLabel="Save name"
+              accessibilityRole="button"
+            >
+              {savingName ? (
+                <ActivityIndicator size="small" color="#fff" />
+              ) : (
+                <Text style={styles.nameSaveButtonText}>Save</Text>
+              )}
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.nameCancelButton}
+              onPress={cancelEditName}
+              disabled={savingName}
+              accessibilityLabel="Cancel editing name"
+              accessibilityRole="button"
+            >
+              <Text style={styles.nameCancelButtonText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <TouchableOpacity
+            style={styles.nameRow}
+            onPress={startEditName}
+            accessibilityLabel="Edit cat name"
+            accessibilityRole="button"
+          >
+            <Text style={styles.catName}>{cat.name ?? 'Unnamed Cat'}</Text>
+            <Text style={styles.nameEditIcon}>✏️</Text>
+          </TouchableOpacity>
+        )}
         {cat.description && (
           <Text style={styles.catDescription}>{cat.description}</Text>
         )}
@@ -463,9 +569,6 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#f9f9f9',
   },
-  scrollBody: {
-    flex: 1,
-  },
   scrollContent: {
     paddingBottom: 32,
   },
@@ -532,6 +635,54 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#333',
     marginBottom: 4,
+  },
+  nameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 4,
+  },
+  nameEditIcon: {
+    fontSize: 16,
+    marginBottom: 4,
+  },
+  nameEditRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 8,
+    paddingHorizontal: 16,
+    width: '100%',
+  },
+  nameInput: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    fontSize: 16,
+    color: '#111',
+    backgroundColor: '#fafafa',
+  },
+  nameSaveButton: {
+    backgroundColor: '#FF8C00',
+    borderRadius: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+  },
+  nameSaveButtonText: {
+    color: '#fff',
+    fontWeight: '600',
+    fontSize: 14,
+  },
+  nameCancelButton: {
+    paddingHorizontal: 8,
+    paddingVertical: 9,
+  },
+  nameCancelButtonText: {
+    color: '#999',
+    fontSize: 14,
   },
   catDescription: {
     fontSize: 14,

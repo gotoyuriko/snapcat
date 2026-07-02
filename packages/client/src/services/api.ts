@@ -33,6 +33,38 @@ export class ApiError extends Error {
       return null;
     }
   }
+
+  /** User-facing message: maps known server errors to plain language, hides raw JSON/status codes. */
+  get friendlyMessage(): string {
+    const server = this.serverMessage;
+
+    if (server === 'Invalid credentials') {
+      return 'Incorrect email or password.';
+    }
+    if (server === 'Email already in use') {
+      return 'An account with this email already exists. Try logging in instead.';
+    }
+    if (server === 'Validation failed') {
+      try {
+        const j = JSON.parse(this.body);
+        const fieldErrors = j.details?.fieldErrors ?? {};
+        const firstField = Object.keys(fieldErrors).find((k) => fieldErrors[k]?.length);
+        if (firstField === 'email') return 'Please enter a valid email address.';
+        if (firstField === 'password') return 'Please enter a valid password.';
+        if (firstField) return `Please check the ${firstField} field and try again.`;
+      } catch {
+        // fall through to generic message below
+      }
+      return 'Please check your details and try again.';
+    }
+    if (this.status === 0) {
+      return 'Unable to reach the server. Check your connection and try again.';
+    }
+    if (this.status >= 500) {
+      return 'Something went wrong on our end. Please try again shortly.';
+    }
+    return 'Something went wrong. Please try again.';
+  }
 }
 
 // Dedupe concurrent refreshes: if several requests 401 at once (e.g. on app
@@ -121,6 +153,8 @@ export const api = {
     apiFetch<T>(path, { method: 'POST', body: form as unknown as RequestInit['body'] }, true),
   put: <T>(path: string, body: unknown) =>
     apiFetch<T>(path, { method: 'PUT', body: JSON.stringify(body) }),
+  patch: <T>(path: string, body: unknown) =>
+    apiFetch<T>(path, { method: 'PATCH', body: JSON.stringify(body) }),
   delete: <T>(path: string) =>
     apiFetch<T>(path, { method: 'DELETE' }),
 };

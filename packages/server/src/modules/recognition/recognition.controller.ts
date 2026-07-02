@@ -5,6 +5,7 @@ import { PrismaClient } from '@prisma/client';
 import { YoloClient } from './yolo.client';
 import { MegaDescriptorClient } from './megadescriptor.client';
 import { VectorService } from './vector.service';
+import { PhotoStorageService } from './photo-storage.service';
 
 const gpsSchema = z.object({
   lat: z.number().min(-90).max(90),
@@ -23,8 +24,10 @@ const confirmSchema = z.object({
  */
 export class RecognitionController {
   private readonly recognitionService: RecognitionService;
+  private readonly photoStorageService: PhotoStorageService;
 
-  constructor(recognitionService?: RecognitionService) {
+  constructor(recognitionService?: RecognitionService, photoStorageService?: PhotoStorageService) {
+    this.photoStorageService = photoStorageService ?? new PhotoStorageService();
     if (recognitionService) {
       this.recognitionService = recognitionService;
     } else {
@@ -73,7 +76,10 @@ export class RecognitionController {
       const userId = req.user!.userId;
       const photo = req.file.buffer;
 
-      const result = await this.recognitionService.recognizeCat(photo, userGPS, userId);
+      const storedFileName = await this.photoStorageService.storePhoto(photo);
+      const photoUrl = this.photoStorageService.buildUrl(req, storedFileName);
+
+      const result = await this.recognitionService.recognizeCat(photo, userGPS, userId, photoUrl);
 
       // Map result to appropriate HTTP status
       if (result.result === 'no_cat') {
@@ -144,6 +150,7 @@ export class RecognitionController {
     }
 
     // Generic internal error
+    console.error('Recognition request failed:', err);
     res.status(500).json({ error: 'Internal server error' });
   }
 }

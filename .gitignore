@@ -36,6 +36,9 @@ packages/client/android/app/build/
 # Test coverage
 coverage/
 
+# Local file uploads (dev-mode object storage stand-in)
+packages/server/uploads/
+
 # Logs
 *.log
 npm-debug.log*

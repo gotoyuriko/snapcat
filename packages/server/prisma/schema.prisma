@@ -52,8 +52,6 @@ model RefreshToken {
 model Cat {
   id                  String                      @id @default(uuid())
   name                String?
-  // pgvector: 768-dimensional embedding for MegaDescriptor-T-224 re-ID
-  embedding           Unsupported("vector(768)")?
   embeddingRef        String                      @default("")
   firstDiscovererId   String
   lastKnownApproxLat  Float                       @default(0)
@@ -70,9 +68,26 @@ model Cat {
   medicalRequests MedicalRequest[]
   chatMessages    ChatMessage[]
   donationXpLogs  DonationXpLog[]
+  embeddings      CatEmbedding[]
 
   // Indexes
   @@index([lastKnownApproxLat, lastKnownApproxLng], name: "idx_cat_approx_location")
+}
+
+// A gallery of re-ID embeddings per cat, one row per scan. MegaDescriptor
+// embeddings are pose/angle-sensitive, so a single reference vector fails to
+// match whenever a rescan's pose differs from whatever was stored last;
+// matching instead uses each cat's BEST (closest) embedding across the whole
+// gallery. See VectorService.
+model CatEmbedding {
+  id        String                      @id @default(uuid())
+  catId     String
+  embedding Unsupported("vector(768)")?
+  createdAt DateTime                    @default(now())
+
+  cat Cat @relation(fields: [catId], references: [id], onDelete: Cascade)
+
+  @@index([catId])
 }
 
 model UserCatDiscovery {

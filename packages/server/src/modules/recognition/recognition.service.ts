@@ -4,10 +4,11 @@ import { YoloClient } from './yolo.client';
 import { MegaDescriptorClient } from './megadescriptor.client';
 import { VectorService } from './vector.service';
 import { fuzzCoordinates } from '../sighting/gps-fuzz';
+import { config } from '../../config';
 
-/** Similarity thresholds for cat re-identification */
-const MATCH_THRESHOLD = 0.92;
-const CONFIRM_THRESHOLD = 0.72;
+/** Similarity thresholds for cat re-identification (tunable via env — see config/index.ts) */
+const MATCH_THRESHOLD = config.recognition.matchThreshold;
+const CONFIRM_THRESHOLD = config.recognition.confirmThreshold;
 
 export interface RawGPS {
   lat: number;
@@ -32,12 +33,14 @@ export class RecognitionService {
    * @param photo - Raw image buffer from the user's camera
    * @param userGPS - The user's current GPS coordinates
    * @param userId - The authenticated user's ID
+   * @param photoUrl - URL of the already-uploaded scan photo, if any
    * @returns Discriminated union OrchestrationResult
    */
   async recognizeCat(
     photo: Buffer,
     userGPS: RawGPS,
     userId: string,
+    photoUrl?: string,
   ): Promise<OrchestrationResult> {
     // Stage 1: YOLO cat detection
     const detection = await this.yoloClient.detectCat(photo);
@@ -58,13 +61,13 @@ export class RecognitionService {
     // Apply thresholds
     if (bestMatch && bestMatch.similarity >= MATCH_THRESHOLD) {
       // High confidence match
-      return this.handleMatch(bestMatch.catId, bestMatch.similarity, embedding, userId, userGPS);
+      return this.handleMatch(bestMatch.catId, bestMatch.similarity, embedding, userId, userGPS, photoUrl);
     } else if (bestMatch && bestMatch.similarity >= CONFIRM_THRESHOLD) {
       // Borderline — ask user to confirm
-      return this.handleConfirmNeeded(bestMatch.catId, embedding);
+      return this.handleConfirmNeeded(bestMatch.catId, embedding, photoUrl ?? '');
     } else {
       // Low similarity or no matches — register new cat
-      return this.handleNewCat(embedding, userId, userGPS);
+      return this.handleNewCat(embedding, userId, userGPS, photoUrl);
     }
   }
 
@@ -159,6 +162,7 @@ export class RecognitionService {
   private async handleConfirmNeeded(
     catId: string,
     embedding: number[],
+    photoUrl: string,
   ): Promise<OrchestrationResult> {
     const cat = await this.prisma.cat.findUniqueOrThrow({ where: { id: catId } });
 
@@ -166,6 +170,7 @@ export class RecognitionService {
       result: 'confirm_needed',
       candidateCat: this.toCatDTO(cat),
       embedding,
+      photoUrl,
     };
   }
 

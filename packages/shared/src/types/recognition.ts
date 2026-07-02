@@ -44,6 +44,7 @@ export interface OrchestrationConfirmNeeded {
   result: 'confirm_needed';
   candidateCat: Cat;
   embedding: number[];
+  photoUrl: string;
 }
 
 /** New cat registered — sighting recorded, XP awarded */

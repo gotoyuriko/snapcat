@@ -22,10 +22,15 @@ interface Cat {
   photoUrl?: string;
 }
 
+interface UserGPS {
+  lat: number;
+  lng: number;
+}
+
 type RecognitionResult =
   | { result: 'no_cat' }
   | { result: 'matched'; cat: Cat; xpAwarded: number; levelUp: boolean }
-  | { result: 'confirm_needed'; candidateCat: Cat }
+  | { result: 'confirm_needed'; candidateCat: Cat; embedding: number[]; photoUrl: string }
   | { result: 'new_cat'; cat: Cat; xpAwarded: number };
 
 type ConfirmResult =
@@ -38,7 +43,13 @@ type ScanState =
   | { type: 'no_cat' }
   | { type: 'error'; message: string }
   | { type: 'matched'; cat: Cat; xpAwarded: number; levelUp: boolean }
-  | { type: 'confirm_needed'; candidateCat: Cat }
+  | {
+      type: 'confirm_needed';
+      candidateCat: Cat;
+      embedding: number[];
+      photoUrl: string;
+      userGPS: UserGPS;
+    }
   | { type: 'new_cat'; cat: Cat; xpAwarded: number };
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
@@ -68,13 +79,14 @@ export function ScanScreen() {
       }
 
       // Server expects multipart/form-data: a `photo` image file + `userGPS` JSON.
+      const userGPS: UserGPS = { lat: latitude ?? 0, lng: longitude ?? 0 };
       const form = new FormData();
       form.append('photo', {
         uri: photo.uri,
         name: 'scan.jpg',
         type: 'image/jpeg',
       } as unknown as Blob);
-      form.append('userGPS', JSON.stringify({ lat: latitude ?? 0, lng: longitude ?? 0 }));
+      form.append('userGPS', JSON.stringify(userGPS));
 
       const result = await api.postForm<RecognitionResult>('/recognition/scan', form);
 
@@ -91,7 +103,13 @@ export function ScanScreen() {
           });
           break;
         case 'confirm_needed':
-          setScanState({ type: 'confirm_needed', candidateCat: result.candidateCat });
+          setScanState({
+            type: 'confirm_needed',
+            candidateCat: result.candidateCat,
+            embedding: result.embedding,
+            photoUrl: result.photoUrl,
+            userGPS,
+          });
           break;
         case 'new_cat':
           setScanState({
@@ -119,9 +137,17 @@ export function ScanScreen() {
   };
 
   const handleConfirm = async (catId: string | 'new') => {
+    if (scanState.type !== 'confirm_needed') return;
+    const { embedding, photoUrl, userGPS } = scanState;
+
     setConfirmLoading(true);
     try {
-      const result = await api.post<ConfirmResult>('/recognition/scan/confirm', { catId });
+      const result = await api.post<ConfirmResult>('/recognition/scan/confirm', {
+        catId,
+        embedding,
+        userGPS,
+        photoUrl,
+      });
       if (result.result === 'matched') {
         setScanState({
           type: 'matched',
@@ -148,7 +174,11 @@ export function ScanScreen() {
   };
 
   const handleGoToProfile = (catId: string) => {
-    navigation.navigate('CatProfile', { catId });
+    // Replace (not push) ScanScreen with CatProfile: otherwise "Back" from
+    // CatProfile pops back onto this screen's stale success state, which has
+    // no capture control to scan again — dead end. Replacing means Back goes
+    // straight to the map, and the next Scan navigation mounts fresh.
+    navigation.replace('CatProfile', { catId });
   };
 
   const handleBack = () => {
@@ -195,13 +225,18 @@ export function ScanScreen() {
   if (scanState.type === 'error') {
     return (
       <View style={styles.container}>
-        <Text style={styles.errorText}>{scanState.message}</Text>
-        <TouchableOpacity style={styles.button} onPress={handleRetry}>
-          <Text style={styles.buttonText}>Retry</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.secondaryButton} onPress={handleBack}>
-          <Text style={styles.secondaryButtonText}>Go Back</Text>
-        </TouchableOpacity>
+        <View style={styles.resultCard}>
+          <View style={styles.failBadge}>
+            <Text style={styles.badgeIcon}>✕</Text>
+          </View>
+          <Text style={styles.errorText}>{scanState.message}</Text>
+          <TouchableOpacity style={styles.button} onPress={handleRetry}>
+            <Text style={styles.buttonText}>Retry</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.secondaryButton} onPress={handleBack}>
+            <Text style={styles.secondaryButtonText}>Go Back</Text>
+          </TouchableOpacity>
+        </View>
       </View>
     );
   }
@@ -210,13 +245,18 @@ export function ScanScreen() {
   if (scanState.type === 'no_cat') {
     return (
       <View style={styles.container}>
-        <Text style={styles.errorText}>No cat detected — please retake</Text>
-        <TouchableOpacity style={styles.button} onPress={handleRetry}>
-          <Text style={styles.buttonText}>Retry</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.secondaryButton} onPress={handleBack}>
-          <Text style={styles.secondaryButtonText}>Go Back</Text>
-        </TouchableOpacity>
+        <View style={styles.resultCard}>
+          <View style={styles.failBadge}>
+            <Text style={styles.badgeIcon}>✕</Text>
+          </View>
+          <Text style={styles.errorText}>No cat detected — please retake</Text>
+          <TouchableOpacity style={styles.button} onPress={handleRetry}>
+            <Text style={styles.buttonText}>Retry</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.secondaryButton} onPress={handleBack}>
+            <Text style={styles.secondaryButtonText}>Go Back</Text>
+          </TouchableOpacity>
+        </View>
       </View>
     );
   }
@@ -225,19 +265,24 @@ export function ScanScreen() {
   if (scanState.type === 'matched') {
     return (
       <View style={styles.container}>
-        <Text style={styles.successText}>Cat Matched!</Text>
-        {scanState.cat.photoUrl && (
-          <Image source={{ uri: scanState.cat.photoUrl }} style={styles.catImage} />
-        )}
-        <Text style={styles.catName}>{scanState.cat.name}</Text>
-        <Text style={styles.xpText}>+{scanState.xpAwarded} XP</Text>
-        {scanState.levelUp && <Text style={styles.levelUpText}>Level Up!</Text>}
-        <TouchableOpacity
-          style={styles.button}
-          onPress={() => handleGoToProfile(scanState.cat.id)}
-        >
-          <Text style={styles.buttonText}>View Profile</Text>
-        </TouchableOpacity>
+        <View style={styles.resultCard}>
+          <View style={styles.successBadge}>
+            <Text style={styles.badgeIcon}>✓</Text>
+          </View>
+          <Text style={styles.successText}>Cat Matched!</Text>
+          {scanState.cat.photoUrl && (
+            <Image source={{ uri: scanState.cat.photoUrl }} style={styles.catImage} />
+          )}
+          <Text style={styles.catName}>{scanState.cat.name}</Text>
+          <Text style={styles.xpText}>+{scanState.xpAwarded} XP</Text>
+          {scanState.levelUp && <Text style={styles.levelUpText}>Level Up!</Text>}
+          <TouchableOpacity
+            style={styles.button}
+            onPress={() => handleGoToProfile(scanState.cat.id)}
+          >
+            <Text style={styles.buttonText}>View Profile</Text>
+          </TouchableOpacity>
+        </View>
       </View>
     );
   }
@@ -246,18 +291,23 @@ export function ScanScreen() {
   if (scanState.type === 'new_cat') {
     return (
       <View style={styles.container}>
-        <Text style={styles.successText}>New Cat Discovered!</Text>
-        {scanState.cat.photoUrl && (
-          <Image source={{ uri: scanState.cat.photoUrl }} style={styles.catImage} />
-        )}
-        <Text style={styles.catName}>{scanState.cat.name}</Text>
-        <Text style={styles.xpText}>+{scanState.xpAwarded} XP</Text>
-        <TouchableOpacity
-          style={styles.button}
-          onPress={() => handleGoToProfile(scanState.cat.id)}
-        >
-          <Text style={styles.buttonText}>View Profile</Text>
-        </TouchableOpacity>
+        <View style={styles.resultCard}>
+          <View style={styles.successBadge}>
+            <Text style={styles.badgeIcon}>✓</Text>
+          </View>
+          <Text style={styles.successText}>New Cat Discovered!</Text>
+          {scanState.cat.photoUrl && (
+            <Image source={{ uri: scanState.cat.photoUrl }} style={styles.catImage} />
+          )}
+          <Text style={styles.catName}>{scanState.cat.name}</Text>
+          <Text style={styles.xpText}>+{scanState.xpAwarded} XP</Text>
+          <TouchableOpacity
+            style={styles.button}
+            onPress={() => handleGoToProfile(scanState.cat.id)}
+          >
+            <Text style={styles.buttonText}>View Profile</Text>
+          </TouchableOpacity>
+        </View>
       </View>
     );
   }
@@ -276,7 +326,7 @@ export function ScanScreen() {
                 />
               )}
               <Text style={styles.confirmText}>
-                Is this {scanState.candidateCat.name}?
+                Does this look like {scanState.candidateCat.name || 'this cat'}?
               </Text>
               {confirmLoading ? (
                 <ActivityIndicator size="small" color="#4CAF50" />
@@ -385,12 +435,46 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '600',
     marginBottom: 20,
+    textAlign: 'center',
   },
   successText: {
     color: '#4CAF50',
     fontSize: 22,
     fontWeight: 'bold',
     marginBottom: 12,
+  },
+  resultCard: {
+    backgroundColor: '#1c1c1c',
+    borderRadius: 20,
+    paddingVertical: 32,
+    paddingHorizontal: 28,
+    alignItems: 'center',
+    width: '85%',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+  },
+  successBadge: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#4CAF50',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  failBadge: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#FF5252',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  badgeIcon: {
+    color: '#fff',
+    fontSize: 28,
+    fontWeight: 'bold',
   },
   catImage: {
     width: 150,

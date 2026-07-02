@@ -3,6 +3,11 @@ import { YoloClient } from '../yolo.client';
 import { MegaDescriptorClient } from '../megadescriptor.client';
 import { VectorService } from '../vector.service';
 import { PrismaClient } from '@prisma/client';
+import { config } from '../../../config';
+
+// Test against the actual configured thresholds (see config/index.ts) rather
+// than hardcoded literals, so this suite stays correct as thresholds are tuned.
+const { matchThreshold: MATCH_THRESHOLD, confirmThreshold: CONFIRM_THRESHOLD } = config.recognition;
 
 // --- Mocks ---
 
@@ -155,11 +160,11 @@ describe('RecognitionService', () => {
       });
     });
 
-    describe('Threshold: High similarity (≥ 0.92) → matched', () => {
+    describe(`Threshold: High similarity (≥ ${MATCH_THRESHOLD}) → matched`, () => {
       beforeEach(() => {
         (mockYoloClient.detectCat as jest.Mock).mockResolvedValue({ cropped: testCroppedBuffer });
         (mockVectorService.findNearestCat as jest.Mock).mockResolvedValue([
-          { catId: 'cat-abc', similarity: 0.95 },
+          { catId: 'cat-abc', similarity: Math.min(1, MATCH_THRESHOLD + 0.05) },
         ]);
       });
 
@@ -206,11 +211,11 @@ describe('RecognitionService', () => {
       });
     });
 
-    describe('Threshold: Borderline similarity (0.72–0.92) → confirm_needed', () => {
+    describe(`Threshold: Borderline similarity (${CONFIRM_THRESHOLD}–${MATCH_THRESHOLD}) → confirm_needed`, () => {
       beforeEach(() => {
         (mockYoloClient.detectCat as jest.Mock).mockResolvedValue({ cropped: testCroppedBuffer });
         (mockVectorService.findNearestCat as jest.Mock).mockResolvedValue([
-          { catId: 'cat-abc', similarity: 0.85 },
+          { catId: 'cat-abc', similarity: (CONFIRM_THRESHOLD + MATCH_THRESHOLD) / 2 },
         ]);
       });
 
@@ -237,11 +242,11 @@ describe('RecognitionService', () => {
       });
     });
 
-    describe('Threshold: Low similarity (< 0.72) → new_cat', () => {
+    describe(`Threshold: Low similarity (< ${CONFIRM_THRESHOLD}) → new_cat`, () => {
       beforeEach(() => {
         (mockYoloClient.detectCat as jest.Mock).mockResolvedValue({ cropped: testCroppedBuffer });
         (mockVectorService.findNearestCat as jest.Mock).mockResolvedValue([
-          { catId: 'cat-abc', similarity: 0.5 },
+          { catId: 'cat-abc', similarity: Math.max(0, CONFIRM_THRESHOLD - 0.2) },
         ]);
       });
 
@@ -317,9 +322,9 @@ describe('RecognitionService', () => {
         (mockYoloClient.detectCat as jest.Mock).mockResolvedValue({ cropped: testCroppedBuffer });
       });
 
-      it('should return "matched" at exactly 0.92 similarity', async () => {
+      it(`should return "matched" at exactly ${MATCH_THRESHOLD} similarity`, async () => {
         (mockVectorService.findNearestCat as jest.Mock).mockResolvedValue([
-          { catId: 'cat-abc', similarity: 0.92 },
+          { catId: 'cat-abc', similarity: MATCH_THRESHOLD },
         ]);
 
         const result = await service.recognizeCat(testPhoto, testGPS, testUserId);
@@ -327,9 +332,9 @@ describe('RecognitionService', () => {
         expect(result.result).toBe('matched');
       });
 
-      it('should return "confirm_needed" at 0.9199 similarity (just below 0.92)', async () => {
+      it(`should return "confirm_needed" just below ${MATCH_THRESHOLD}`, async () => {
         (mockVectorService.findNearestCat as jest.Mock).mockResolvedValue([
-          { catId: 'cat-abc', similarity: 0.9199 },
+          { catId: 'cat-abc', similarity: MATCH_THRESHOLD - 0.0001 },
         ]);
 
         const result = await service.recognizeCat(testPhoto, testGPS, testUserId);
@@ -337,9 +342,9 @@ describe('RecognitionService', () => {
         expect(result.result).toBe('confirm_needed');
       });
 
-      it('should return "confirm_needed" at exactly 0.72 similarity', async () => {
+      it(`should return "confirm_needed" at exactly ${CONFIRM_THRESHOLD} similarity`, async () => {
         (mockVectorService.findNearestCat as jest.Mock).mockResolvedValue([
-          { catId: 'cat-abc', similarity: 0.72 },
+          { catId: 'cat-abc', similarity: CONFIRM_THRESHOLD },
         ]);
 
         const result = await service.recognizeCat(testPhoto, testGPS, testUserId);
@@ -347,9 +352,9 @@ describe('RecognitionService', () => {
         expect(result.result).toBe('confirm_needed');
       });
 
-      it('should return "new_cat" at 0.7199 similarity (just below 0.72)', async () => {
+      it(`should return "new_cat" just below ${CONFIRM_THRESHOLD}`, async () => {
         (mockVectorService.findNearestCat as jest.Mock).mockResolvedValue([
-          { catId: 'cat-abc', similarity: 0.7199 },
+          { catId: 'cat-abc', similarity: CONFIRM_THRESHOLD - 0.0001 },
         ]);
 
         const result = await service.recognizeCat(testPhoto, testGPS, testUserId);

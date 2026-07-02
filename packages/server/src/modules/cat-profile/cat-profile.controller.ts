@@ -1,9 +1,14 @@
 import { Request, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
+import { z } from 'zod';
 import { SightingService } from '../sighting/sighting.service';
 
 const prisma = new PrismaClient();
 const sightingService = new SightingService();
+
+const renameSchema = z.object({
+  name: z.string().trim().min(1, 'Name is required').max(50, 'Name must be 50 characters or fewer'),
+});
 
 // Mirrors the client's XP thresholds (CatProfileScreen LEVEL_THRESHOLDS).
 const LEVEL_THRESHOLDS = [0, 1, 6, 16, 31, 56, 96, 156, 236, 336, 486];
@@ -70,6 +75,47 @@ export class CatProfileController {
       });
     } catch (err) {
       console.error('Cat profile error:', err);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  }
+
+  /**
+   * PATCH /api/cats/:catId — rename a cat. Any user who has discovered the
+   * cat may rename it (same gate as "Feed Cat": Lvl0+ discovered, Req 14.4);
+   * naming isn't tied to Ownership, which only exists once a user has fed
+   * the cat at least once.
+   */
+  async updateName(req: Request, res: Response): Promise<void> {
+    try {
+      const { catId } = req.params;
+      const userId = req.user!.userId;
+
+      const parsed = renameSchema.safeParse(req.body);
+      if (!parsed.success) {
+        res.status(400).json({ error: 'Validation failed', details: parsed.error.flatten() });
+        return;
+      }
+
+      const discovery = await prisma.userCatDiscovery.findUnique({
+        where: { userId_catId: { userId, catId } },
+      });
+      if (!discovery) {
+        res.status(403).json({ error: 'You must discover this cat before naming it' });
+        return;
+      }
+
+      const cat = await prisma.cat.update({
+        where: { id: catId },
+        data: { name: parsed.data.name },
+      });
+
+      res.status(200).json({ id: cat.id, name: cat.name });
+    } catch (err: any) {
+      if (err?.code === 'P2025') {
+        res.status(404).json({ error: 'Cat not found' });
+        return;
+      }
+      console.error('Cat rename error:', err);
       res.status(500).json({ error: 'Internal server error' });
     }
   }

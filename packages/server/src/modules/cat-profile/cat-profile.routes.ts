@@ -10,3 +10,6 @@ export const catProfileRoutes = Router();
 // Mounted alongside chat (/:catId/messages) and leaderboard (/:catId/leaderboard)
 // at /api/cats; ":catId" only matches the single-segment path so there's no clash.
 catProfileRoutes.get('/:catId', authMiddleware, (req, res) => controller.getProfile(req, res));
+
+// PATCH /api/cats/:catId — rename a cat (auth required, must have discovered it).
+catProfileRoutes.patch('/:catId', authMiddleware, (req, res) => controller.updateName(req, res));

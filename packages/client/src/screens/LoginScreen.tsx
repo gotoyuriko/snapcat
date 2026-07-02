@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../hooks/useAuth';
+import { ApiError } from '../services/api';
 
 /**
  * Auth gate screen. Toggles between login and register; on success the auth
@@ -50,7 +51,11 @@ export function LoginScreen() {
       }
       // No navigation needed — the auth gate re-renders into the app stack.
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Authentication failed.');
+      if (err instanceof ApiError) {
+        setError(err.friendlyMessage);
+      } else {
+        setError('Unable to reach the server. Check your connection and try again.');
+      }
     } finally {
       setSubmitting(false);
     }
