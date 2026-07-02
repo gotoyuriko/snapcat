@@ -10,7 +10,9 @@ import {
   Alert,
   ScrollView,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { api } from '../services/api';
+import { FoodIcon } from '../components/FoodIcons';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -212,15 +214,16 @@ export function WalletScreen() {
 
   if (loadingBalance || loadingItems) {
     return (
-      <View style={styles.loadingContainer}>
+      <SafeAreaView style={styles.loadingContainer} edges={['top']}>
         <ActivityIndicator size="large" color="#FF8C00" />
         <Text style={styles.loadingText}>Loading wallet...</Text>
-      </View>
+      </SafeAreaView>
     );
   }
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <SafeAreaView style={styles.container} edges={['top']}>
+    <ScrollView style={styles.scrollBody} contentContainerStyle={styles.content}>
       {/* ─── Wallet Balance ─────────────────────────────────────────── */}
       <View style={styles.balanceCard}>
         <Text style={styles.balanceLabel}>Wallet Balance</Text>
@@ -279,6 +282,9 @@ export function WalletScreen() {
             const qty = cart[item.id] || 0;
             return (
               <View key={item.id} style={styles.foodItemRow}>
+                <View style={styles.foodIconBadge}>
+                  <FoodIcon name={item.name} size={30} />
+                </View>
                 <View style={styles.foodItemInfo}>
                   <Text style={styles.foodItemName}>{item.name}</Text>
                   <Text style={styles.foodItemPrice}>
@@ -319,9 +325,12 @@ export function WalletScreen() {
             if (!item) return null;
             return (
               <View key={itemId} style={styles.checkoutRow}>
-                <Text style={styles.checkoutItemName}>
-                  {item.name} × {qty}
-                </Text>
+                <View style={styles.checkoutItemLeft}>
+                  <FoodIcon name={item.name} size={18} />
+                  <Text style={styles.checkoutItemName}>
+                    {item.name} × {qty}
+                  </Text>
+                </View>
                 <Text style={styles.checkoutItemTotal}>
                   RM {(item.priceMyr * qty).toFixed(2)}
                 </Text>
@@ -363,6 +372,7 @@ export function WalletScreen() {
           <>
             {inventory.map((item) => (
               <View key={item.foodItemId} style={styles.inventoryRow}>
+                <FoodIcon name={item.name} size={22} />
                 <Text style={styles.inventoryName}>{item.name}</Text>
                 <Text style={styles.inventoryQty}>× {item.quantity}</Text>
                 <Text style={styles.inventoryValue}>
@@ -382,6 +392,7 @@ export function WalletScreen() {
         )}
       </View>
     </ScrollView>
+    </SafeAreaView>
   );
 }
 
@@ -391,6 +402,9 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f9f9f9',
+  },
+  scrollBody: {
+    flex: 1,
   },
   content: {
     padding: 16,
@@ -505,6 +519,15 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#f0f0f0',
   },
+  foodIconBadge: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#FFF3E6',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
   foodItemInfo: {
     flex: 1,
   },
@@ -567,7 +590,13 @@ const styles = StyleSheet.create({
   checkoutRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    alignItems: 'center',
     paddingVertical: 4,
+  },
+  checkoutItemLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   checkoutItemName: {
     fontSize: 14,
@@ -624,6 +653,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 15,
     color: '#333',
+    marginLeft: 10,
   },
   inventoryQty: {
     fontSize: 14,

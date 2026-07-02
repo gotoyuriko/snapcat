@@ -10,41 +10,53 @@ import { WalletScreen } from '../screens/WalletScreen';
 const Tab = createBottomTabNavigator();
 
 function CustomTabBar({ state, navigation }: BottomTabBarProps) {
-  const isCatpedia = state.index === 1;
-  const isWallet = state.index === 2;
+  const activeName = state.routes[state.index].name;
+  const isCatpedia = activeName === 'Catpedia';
+  const isMap = activeName === 'Map';
+  const isWallet = activeName === 'Wallet';
 
   return (
-    <View style={styles.container}>
-      {/* Catpedia — left */}
+    <View style={styles.wrapper}>
+      {/* Camera — floating FAB, detached above the bar, centered on screen */}
       <TouchableOpacity
-        style={styles.tabItem}
-        onPress={() => navigation.navigate('Catpedia')}
-        activeOpacity={0.7}
+        style={styles.cameraButton}
+        onPress={() => navigation.getParent()?.navigate('Scan')}
+        activeOpacity={0.85}
       >
-        <Ionicons name="paw" size={24} color={isCatpedia ? '#FF6B35' : '#9E9E9E'} />
-        <Text style={[styles.label, isCatpedia && styles.labelActive]}>Catpedia</Text>
+        <Ionicons name="camera" size={30} color="#fff" />
       </TouchableOpacity>
 
-      {/* Camera — center FAB */}
-      <View style={styles.cameraWrapper}>
+      <View style={styles.container}>
+        {/* Catpedia — left */}
         <TouchableOpacity
-          style={styles.cameraButton}
-          onPress={() => navigation.getParent()?.navigate('Scan')}
-          activeOpacity={0.85}
+          style={styles.tabItem}
+          onPress={() => navigation.navigate('Catpedia')}
+          activeOpacity={0.7}
         >
-          <Ionicons name="camera" size={30} color="#fff" />
+          <Ionicons name="paw" size={24} color={isCatpedia ? '#FF6B35' : '#9E9E9E'} />
+          <Text style={[styles.label, isCatpedia && styles.labelActive]}>Catpedia</Text>
+        </TouchableOpacity>
+
+        {/* Map — center, sits under the floating camera */}
+        <TouchableOpacity
+          style={styles.tabItem}
+          onPress={() => navigation.navigate('Map')}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="map" size={24} color={isMap ? '#FF6B35' : '#9E9E9E'} />
+          <Text style={[styles.label, isMap && styles.labelActive]}>Map</Text>
+        </TouchableOpacity>
+
+        {/* Donation Wallet — right */}
+        <TouchableOpacity
+          style={styles.tabItem}
+          onPress={() => navigation.navigate('Wallet')}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="wallet" size={24} color={isWallet ? '#FF6B35' : '#9E9E9E'} />
+          <Text style={[styles.label, isWallet && styles.labelActive]}>Wallet</Text>
         </TouchableOpacity>
       </View>
-
-      {/* Donation Wallet — right */}
-      <TouchableOpacity
-        style={styles.tabItem}
-        onPress={() => navigation.navigate('Wallet')}
-        activeOpacity={0.7}
-      >
-        <Ionicons name="wallet" size={24} color={isWallet ? '#FF6B35' : '#9E9E9E'} />
-        <Text style={[styles.label, isWallet && styles.labelActive]}>Wallet</Text>
-      </TouchableOpacity>
     </View>
   );
 }
@@ -56,7 +68,6 @@ export function MainTabs() {
       screenOptions={{ headerShown: false }}
       initialRouteName="Map"
     >
-      {/* Map is the default home — hidden from the tab bar */}
       <Tab.Screen name="Map" component={MapScreen} />
       <Tab.Screen name="Catpedia" component={CatpediaScreen} />
       <Tab.Screen name="Wallet" component={WalletScreen} />
@@ -65,6 +76,9 @@ export function MainTabs() {
 }
 
 const styles = StyleSheet.create({
+  wrapper: {
+    position: 'relative',
+  },
   container: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -93,23 +107,22 @@ const styles = StyleSheet.create({
   labelActive: {
     color: '#FF6B35',
   },
-  cameraWrapper: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   cameraButton: {
+    position: 'absolute',
+    top: -68,
+    left: '50%',
+    marginLeft: -30,
     width: 60,
     height: 60,
     borderRadius: 30,
     backgroundColor: '#FF6B35',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 20,
     shadowColor: '#FF6B35',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.4,
     shadowRadius: 8,
     elevation: 8,
+    zIndex: 10,
   },
 });

@@ -10,6 +10,7 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRoute, RouteProp } from '@react-navigation/native';
 import { RootStackParamList } from '../navigation';
 import { useAuth } from '../hooks/useAuth';
@@ -204,7 +205,7 @@ export function ChatScreen() {
   // Forbidden / 403 screen for non-owners
   if (forbidden) {
     return (
-      <View style={styles.forbiddenContainer}>
+      <SafeAreaView style={styles.forbiddenContainer} edges={['top']}>
         <Text style={styles.forbiddenIcon}>🔒</Text>
         <Text style={styles.forbiddenTitle}>Chat Locked</Text>
         <Text style={styles.forbiddenMessage}>
@@ -214,29 +215,29 @@ export function ChatScreen() {
           Keep scanning and donating to level up! Chat will unlock automatically when you reach
           Level 1.
         </Text>
-      </View>
+      </SafeAreaView>
     );
   }
 
   // Loading state
   if (loading) {
     return (
-      <View style={styles.loadingContainer}>
+      <SafeAreaView style={styles.loadingContainer} edges={['top']}>
         <ActivityIndicator size="large" color="#4CAF50" />
         <Text style={styles.loadingText}>Loading chat...</Text>
-      </View>
+      </SafeAreaView>
     );
   }
 
   // Error state
   if (error) {
     return (
-      <View style={styles.errorContainer}>
+      <SafeAreaView style={styles.errorContainer} edges={['top']}>
         <Text style={styles.errorText}>{error}</Text>
         <TouchableOpacity style={styles.retryButton} onPress={loadMessages}>
           <Text style={styles.retryButtonText}>Retry</Text>
         </TouchableOpacity>
-      </View>
+      </SafeAreaView>
     );
   }
 
@@ -266,8 +267,9 @@ export function ChatScreen() {
   };
 
   return (
+    <SafeAreaView style={styles.container} edges={['top']}>
     <KeyboardAvoidingView
-      style={styles.container}
+      style={styles.chatBody}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
     >
@@ -309,6 +311,7 @@ export function ChatScreen() {
         </TouchableOpacity>
       </View>
     </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }
 
@@ -316,6 +319,9 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f5f5f5',
+  },
+  chatBody: {
+    flex: 1,
   },
   // Forbidden / 403 screen
   forbiddenContainer: {

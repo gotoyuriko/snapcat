@@ -8,6 +8,7 @@ import {
   TouchableOpacity,
   ActivityIndicator,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RouteProp } from '@react-navigation/native';
@@ -283,22 +284,22 @@ export function CatProfileScreen() {
   // Loading state
   if (loading) {
     return (
-      <View style={styles.container}>
+      <SafeAreaView style={styles.container} edges={['top']}>
         <ActivityIndicator size="large" color="#FF8C00" />
         <Text style={styles.loadingText}>Loading cat profile...</Text>
-      </View>
+      </SafeAreaView>
     );
   }
 
   // Error state
   if (error || !profileData) {
     return (
-      <View style={styles.container}>
+      <SafeAreaView style={styles.container} edges={['top']}>
         <Text style={styles.errorText}>{error ?? 'Something went wrong'}</Text>
         <TouchableOpacity style={styles.retryButton} onPress={fetchProfile}>
           <Text style={styles.retryButtonText}>Retry</Text>
         </TouchableOpacity>
-      </View>
+      </SafeAreaView>
     );
   }
 
@@ -306,7 +307,8 @@ export function CatProfileScreen() {
   // Req 14.8: no name, photo, leaderboard, chat teaser, or action buttons
   if (!profileData.discovered) {
     return (
-      <ScrollView style={styles.scrollContainer} contentContainerStyle={styles.scrollContent}>
+      <SafeAreaView style={styles.scrollContainer} edges={['top']}>
+      <ScrollView style={styles.scrollBody} contentContainerStyle={styles.scrollContent}>
         <TouchableOpacity
           style={styles.backButton}
           onPress={() => navigation.goBack()}
@@ -317,6 +319,7 @@ export function CatProfileScreen() {
         </TouchableOpacity>
         <UndiscoveredCatView cat={profileData.cat} />
       </ScrollView>
+      </SafeAreaView>
     );
   }
 
@@ -327,7 +330,8 @@ export function CatProfileScreen() {
   const canChat = ownershipLevel >= 1;
 
   return (
-    <ScrollView style={styles.scrollContainer} contentContainerStyle={styles.scrollContent}>
+    <SafeAreaView style={styles.scrollContainer} edges={['top']}>
+    <ScrollView style={styles.scrollBody} contentContainerStyle={styles.scrollContent}>
       {/* Back button */}
       <TouchableOpacity
         style={styles.backButton}
@@ -442,6 +446,7 @@ export function CatProfileScreen() {
         )}
       </View>
     </ScrollView>
+    </SafeAreaView>
   );
 }
 
@@ -457,6 +462,9 @@ const styles = StyleSheet.create({
   scrollContainer: {
     flex: 1,
     backgroundColor: '#f9f9f9',
+  },
+  scrollBody: {
+    flex: 1,
   },
   scrollContent: {
     paddingBottom: 32,

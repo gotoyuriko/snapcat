@@ -9,6 +9,8 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
+import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation';
@@ -50,15 +52,62 @@ const REFETCH_DISTANCE_THRESHOLD = 200; // meters
 
 export function MapScreen() {
   const navigation = useNavigation<NavigationProp>();
+  const insets = useSafeAreaInsets();
   const logout = useAuth((s) => s.logout);
-  const { latitude, longitude, loading: locationLoading, error: locationError } = useLocation();
+  const {
+    latitude,
+    longitude,
+    loading: locationLoading,
+    error: locationError,
+    refreshLocation,
+  } = useLocation();
 
   const [pins, setPins] = useState<MapPin[]>([]);
   const [loadingPins, setLoadingPins] = useState(false);
   const [selectedSilhouette, setSelectedSilhouette] = useState<MapPin | null>(null);
 
+  const mapRef = useRef<MapView>(null);
   // Track the last position where we fetched pins to avoid unnecessary refetches
   const lastFetchPos = useRef<{ lat: number; lng: number } | null>(null);
+  // Only auto-recenter once, on the first GPS fix — avoid yanking the map
+  // out from under the user while they're panning around later.
+  const hasAutoRecentered = useRef(false);
+
+  // Fetch the device's current location on mount so the map centers on the
+  // user instead of the fallback coordinate.
+  useEffect(() => {
+    refreshLocation();
+  }, [refreshLocation]);
+
+  useEffect(() => {
+    if (latitude == null || longitude == null || hasAutoRecentered.current) return;
+    hasAutoRecentered.current = true;
+    mapRef.current?.animateToRegion(
+      {
+        latitude,
+        longitude,
+        latitudeDelta: 0.01,
+        longitudeDelta: 0.01,
+      },
+      500,
+    );
+  }, [latitude, longitude]);
+
+  const recenterOnUser = useCallback(() => {
+    if (latitude != null && longitude != null) {
+      mapRef.current?.animateToRegion(
+        {
+          latitude,
+          longitude,
+          latitudeDelta: 0.01,
+          longitudeDelta: 0.01,
+        },
+        500,
+      );
+    } else {
+      refreshLocation();
+    }
+  }, [latitude, longitude, refreshLocation]);
 
   const fetchPins = useCallback(async () => {
     setLoadingPins(true);
@@ -143,11 +192,12 @@ export function MapScreen() {
   return (
     <View style={styles.container}>
       <MapView
+        ref={mapRef}
         style={styles.map}
         provider={PROVIDER_GOOGLE}
         initialRegion={initialRegion}
         showsUserLocation
-        showsMyLocationButton
+        showsMyLocationButton={false}
       >
         {pins.map((pin) => (
           <Marker
@@ -162,29 +212,41 @@ export function MapScreen() {
 
       {/* Loading indicator for pin fetching */}
       {loadingPins && (
-        <View style={styles.loadingBadge}>
+        <View style={[styles.loadingBadge, { top: insets.top + 16 }]}>
           <ActivityIndicator size="small" color="#FF8C00" />
         </View>
       )}
 
-      {/* Floating Action Button → Scan screen */}
-      <TouchableOpacity
-        style={styles.fab}
-        onPress={() => navigation.navigate('Scan')}
-        accessibilityLabel="Scan for cats"
-        accessibilityRole="button"
-      >
-        <Text style={styles.fabIcon}>📷</Text>
-      </TouchableOpacity>
-
       {/* Logout button */}
       <TouchableOpacity
-        style={styles.logoutBtn}
+        style={[styles.logoutBtn, { top: insets.top + 8 }]}
         onPress={logout}
         accessibilityLabel="Log out"
         accessibilityRole="button"
       >
         <Text style={styles.logoutText}>Log out</Text>
+      </TouchableOpacity>
+
+      {/* Profile button */}
+      <TouchableOpacity
+        style={[styles.profileBtn, { top: insets.top + 8 }]}
+        onPress={() => navigation.navigate('Profile')}
+        accessibilityLabel="Open profile"
+        accessibilityRole="button"
+      >
+        <Ionicons name="person-circle" size={36} color="#FF6B35" />
+      </TouchableOpacity>
+
+      {/* Recenter button — custom, identically placed on Android and iOS
+          (the native showsMyLocationButton is Android-only and its position
+          is controlled by the Google Maps SDK, not us). */}
+      <TouchableOpacity
+        style={styles.recenterBtn}
+        onPress={recenterOnUser}
+        accessibilityLabel="Recenter on my location"
+        accessibilityRole="button"
+      >
+        <Ionicons name="locate" size={22} color="#333" />
       </TouchableOpacity>
 
       {/* Silhouette tap modal — shows approximate area only */}
@@ -230,24 +292,21 @@ const styles = StyleSheet.create({
   map: {
     ...StyleSheet.absoluteFillObject,
   },
-  fab: {
+  recenterBtn: {
     position: 'absolute',
-    bottom: 32,
-    right: 24,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: '#FF8C00',
-    justifyContent: 'center',
+    bottom: 24,
+    right: 16,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#fff',
     alignItems: 'center',
-    elevation: 6,
+    justifyContent: 'center',
+    elevation: 4,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-  },
-  fabIcon: {
-    fontSize: 24,
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
   },
   logoutBtn: {
     position: 'absolute',
@@ -267,6 +326,22 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
     color: '#e53935',
+  },
+  profileBtn: {
+    position: 'absolute',
+    top: 48,
+    right: 16,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#fff',
+    alignItems: 'center',
+    justifyContent: 'center',
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
   },
   loadingBadge: {
     position: 'absolute',

@@ -1,5 +1,6 @@
 import React, { useState, useCallback } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation';
@@ -80,7 +81,7 @@ export function PermissionsScreen() {
 
   if (step === 'explanation') {
     return (
-      <View style={styles.container}>
+      <SafeAreaView style={styles.container} edges={['top']}>
         <Text style={styles.title}>Welcome to CodingKitty 🐱</Text>
         <Text style={styles.subtitle}>
           Before we get started, we need a couple of permissions to give you the
@@ -112,13 +113,13 @@ export function PermissionsScreen() {
         <TouchableOpacity style={styles.button} onPress={handleContinue}>
           <Text style={styles.buttonText}>Continue</Text>
         </TouchableOpacity>
-      </View>
+      </SafeAreaView>
     );
   }
 
   // Step: requesting
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top']}>
       <Text style={styles.title}>Setting Up Permissions</Text>
 
       {processing && (
@@ -154,7 +155,7 @@ export function PermissionsScreen() {
           <Text style={styles.buttonText}>Grant Permissions</Text>
         </TouchableOpacity>
       )}
-    </View>
+    </SafeAreaView>
   );
 }
 

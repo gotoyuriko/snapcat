@@ -9,6 +9,7 @@ import { ScanScreen } from '../screens/ScanScreen';
 import { CatProfileScreen } from '../screens/CatProfileScreen';
 import { ChatScreen } from '../screens/ChatScreen';
 import { WebARFeedingScreen } from '../screens/WebARFeedingScreen';
+import { ProfileScreen } from '../screens/ProfileScreen';
 import { MainTabs } from './MainTabs';
 
 export type RootStackParamList = {
@@ -19,6 +20,7 @@ export type RootStackParamList = {
   Chat: { catId: string };
   Permissions: undefined;
   WebARFeeding: { catId: string };
+  Profile: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -67,6 +69,11 @@ export function RootNavigation() {
               name="WebARFeeding"
               component={WebARFeedingScreen}
               options={{ title: 'Feed Cat' }}
+            />
+            <Stack.Screen
+              name="Profile"
+              component={ProfileScreen}
+              options={{ title: 'Profile' }}
             />
           </>
         )}
