@@ -71,18 +71,20 @@ type CatProfileRouteProp = RouteProp<RootStackParamList, 'CatProfile'>;
 
 // --- XP Level Thresholds ---
 
+// Must match the server's thresholds (Requirement 6.6: each level's
+// increment grows by 5 XP) — see packages/server gamification.service.ts
 const LEVEL_THRESHOLDS: number[] = [
   0,   // Lvl0 - Discovered
   1,   // Lvl1 - Owner
   6,   // Lvl2
   16,  // Lvl3
   31,  // Lvl4
-  56,  // Lvl5
-  96,  // Lvl6
-  156, // Lvl7
-  236, // Lvl8
-  336, // Lvl9
-  486, // Lvl10
+  51,  // Lvl5
+  76,  // Lvl6
+  106, // Lvl7 - unlocks medical/grooming
+  141, // Lvl8
+  181, // Lvl9
+  226, // Lvl10
 ];
 
 function getNextLevelXp(currentLevel: number): number {
@@ -132,7 +134,13 @@ function SightingItem({ sighting }: { sighting: Sighting }) {
   const date = new Date(sighting.timestamp);
   return (
     <View style={styles.sightingItem}>
-      <Image source={{ uri: resolvePhotoUrl(sighting.photoUrl) }} style={styles.sightingPhoto} />
+      <Image
+        source={{ uri: resolvePhotoUrl(sighting.photoUrl) }}
+        style={styles.sightingPhoto}
+        onError={(e) =>
+          console.warn('Failed to load sighting photo:', resolvePhotoUrl(sighting.photoUrl), e.nativeEvent.error)
+        }
+      />
       <View style={styles.sightingInfo}>
         <Text style={styles.sightingDate}>
           {date.toLocaleDateString()} {date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
@@ -406,7 +414,13 @@ export function CatProfileScreen() {
       {/* Cat Photo & Name */}
       <View style={styles.headerSection}>
         {cat.photoUrl ? (
-          <Image source={{ uri: resolvePhotoUrl(cat.photoUrl) }} style={styles.catPhoto} />
+          <Image
+            source={{ uri: resolvePhotoUrl(cat.photoUrl) }}
+            style={styles.catPhoto}
+            onError={(e) =>
+              console.warn('Failed to load cat photo:', resolvePhotoUrl(cat.photoUrl), e.nativeEvent.error)
+            }
+          />
         ) : (
           <View style={styles.catPhotoPlaceholder}>
             <Text style={styles.catPhotoPlaceholderText}>🐱</Text>

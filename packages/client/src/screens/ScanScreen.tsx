@@ -303,7 +303,13 @@ export function ScanScreen() {
           </View>
           <Text style={styles.successText}>Cat Matched!</Text>
           {scanState.cat.photoUrl && (
-            <Image source={{ uri: resolvePhotoUrl(scanState.cat.photoUrl) }} style={styles.catImage} />
+            <Image
+              source={{ uri: resolvePhotoUrl(scanState.cat.photoUrl) }}
+              style={styles.catImage}
+              onError={(e) =>
+                console.warn('Failed to load cat photo:', resolvePhotoUrl(scanState.cat.photoUrl), e.nativeEvent.error)
+              }
+            />
           )}
           <Text style={styles.catName}>{scanState.cat.name}</Text>
           <Text style={styles.xpText}>+{scanState.xpAwarded} XP</Text>
@@ -329,7 +335,13 @@ export function ScanScreen() {
           </View>
           <Text style={styles.successText}>New Cat Discovered!</Text>
           {scanState.cat.photoUrl && (
-            <Image source={{ uri: resolvePhotoUrl(scanState.cat.photoUrl) }} style={styles.catImage} />
+            <Image
+              source={{ uri: resolvePhotoUrl(scanState.cat.photoUrl) }}
+              style={styles.catImage}
+              onError={(e) =>
+                console.warn('Failed to load cat photo:', resolvePhotoUrl(scanState.cat.photoUrl), e.nativeEvent.error)
+              }
+            />
           )}
           <Text style={styles.catName}>{scanState.cat.name}</Text>
           <Text style={styles.xpText}>+{scanState.xpAwarded} XP</Text>

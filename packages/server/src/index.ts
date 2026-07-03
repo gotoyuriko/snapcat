@@ -28,7 +28,10 @@ const io = new SocketIOServer(httpServer, {
 });
 
 // Middleware
-app.use(helmet());
+// Client fetches photos/API from a different origin (tunnel URL) than the
+// app itself runs on, so relax CORP — helmet's default (same-origin) blocks
+// cross-origin <img> loads (e.g. Catpedia thumbnails) silently.
+app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
 app.use(cors());
 app.use(express.json());
 

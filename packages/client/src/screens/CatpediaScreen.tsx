@@ -96,7 +96,17 @@ export function CatpediaScreen() {
           accessibilityRole="button"
         >
           {item.photoUrl ? (
-            <Image source={{ uri: resolvePhotoUrl(item.photoUrl) }} style={styles.catPhoto} />
+            <Image
+              source={{ uri: resolvePhotoUrl(item.photoUrl) }}
+              style={styles.catPhoto}
+              onError={(e) =>
+                console.warn(
+                  `Failed to load cat photo for ${item.name ?? item.id}:`,
+                  resolvePhotoUrl(item.photoUrl),
+                  e.nativeEvent.error
+                )
+              }
+            />
           ) : (
             <View style={[styles.catPhoto, styles.placeholderPhoto]}>
               <Text style={styles.placeholderEmoji}>🐱</Text>
