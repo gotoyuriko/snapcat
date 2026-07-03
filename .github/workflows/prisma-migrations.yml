@@ -1,0 +1,53 @@
+name: Prisma migrations
+
+on:
+  pull_request:
+    paths:
+      - "packages/server/prisma/**"
+  push:
+    branches: [main]
+    paths:
+      - "packages/server/prisma/**"
+
+jobs:
+  check-pending-migrations:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: packages/server
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5433/codingkitty
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Start database
+        working-directory: .
+        run: docker compose up -d db
+
+      - name: Wait for database to be healthy
+        working-directory: .
+        run: |
+          for i in $(seq 1 30); do
+            status="$(docker inspect --format='{{.State.Health.Status}}' codingkitty-db)"
+            if [ "$status" = "healthy" ]; then
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "Database never became healthy" >&2
+          exit 1
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        working-directory: .
+        run: npm ci
+
+      - name: Apply committed migrations (fails if any migration is broken)
+        run: npx prisma migrate deploy
+
+      - name: Fail if any migration is still pending
+        run: npx prisma migrate status
