@@ -3,9 +3,11 @@
  *
  * Tests the core activity logic for the donation escrow workflow:
  * - releaseToCatPool: updates donation status to "released"
- * - awardDonationXP: calls gamification service with correct params
  * - notifyOwners: sends notifications to Lvl1+ owners
  * - updateDonationStatus: updates donation record status
+ *
+ * Donor XP is awarded at donation acceptance (DonationService), not by
+ * this workflow — see donation.service tests.
  */
 
 // Mock PrismaClient before imports
@@ -21,14 +23,6 @@ jest.mock('@prisma/client', () => ({
   })),
 }));
 
-// Mock GamificationService
-const mockRecordAction = jest.fn().mockResolvedValue({ xpAwarded: 10, newLevel: 1, levelUp: false });
-jest.mock('../../modules/gamification/gamification.service', () => ({
-  GamificationService: jest.fn(() => ({
-    recordAction: mockRecordAction,
-  })),
-}));
-
 // Mock AlertsService
 const mockNotify = jest.fn().mockResolvedValue(undefined);
 jest.mock('../../modules/alerts/alerts.service', () => ({
@@ -39,7 +33,6 @@ jest.mock('../../modules/alerts/alerts.service', () => ({
 
 import {
   releaseToCatPool,
-  awardDonationXP,
   notifyOwners,
   updateDonationStatus,
 } from '../../workflows/activities/donation-escrow.activities';
@@ -61,28 +54,6 @@ describe('Donation Escrow Activities', () => {
         where: { id: donationId },
         data: { status: 'released' },
       });
-    });
-  });
-
-  describe('awardDonationXP', () => {
-    it('should call gamification service with donation action and amountCents', async () => {
-      const donorId = 'user-789';
-      const catId = 'cat-456';
-      const amountCents = 2000;
-
-      await awardDonationXP(donorId, catId, amountCents);
-
-      expect(mockRecordAction).toHaveBeenCalledWith(donorId, catId, 'donation', amountCents);
-    });
-
-    it('should pass small amounts to gamification service (service handles capping)', async () => {
-      const donorId = 'user-789';
-      const catId = 'cat-456';
-      const amountCents = 50;
-
-      await awardDonationXP(donorId, catId, amountCents);
-
-      expect(mockRecordAction).toHaveBeenCalledWith(donorId, catId, 'donation', amountCents);
     });
   });
 

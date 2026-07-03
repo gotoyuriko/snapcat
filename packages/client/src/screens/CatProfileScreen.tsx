@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -9,13 +9,16 @@ import {
   ActivityIndicator,
   TextInput,
   Alert,
+  RefreshControl,
+  Animated,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation, useRoute } from '@react-navigation/native';
+import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RouteProp } from '@react-navigation/native';
 import type { RootStackParamList } from '../navigation';
 import { api, ApiError, resolvePhotoUrl } from '../services/api';
+import { FeedCatModal, FeedResult } from '../components/FeedCatModal';
 
 // --- Types ---
 
@@ -100,22 +103,129 @@ function getCurrentLevelXp(currentLevel: number): number {
 
 // --- Components ---
 
-/** XP Progress Bar */
-function XPProgressBar({ ownership }: { ownership: OwnershipInfo }) {
+/** Brief green "(+X XP)" pop shown next to the XP total after feeding.
+ *  Shows a cap notice instead when the donation awarded no XP. */
+function InlineXPGain({ amount, levelUp, newLevel, onDone }: {
+  amount: number;
+  levelUp?: boolean;
+  newLevel?: number;
+  onDone: () => void;
+}) {
+  const opacity = useRef(new Animated.Value(0)).current;
+  const scale = useRef(new Animated.Value(0.5)).current;
+
+  // Keep the latest onDone without re-triggering the animation: the parent
+  // re-renders mid-animation (profile refetch) and a re-run of this effect
+  // would interrupt the sequence and hide the popup early.
+  const onDoneRef = useRef(onDone);
+  onDoneRef.current = onDone;
+
+  useEffect(() => {
+    Animated.sequence([
+      Animated.parallel([
+        Animated.timing(opacity, { toValue: 1, duration: 200, useNativeDriver: true }),
+        Animated.spring(scale, { toValue: 1, friction: 4, useNativeDriver: true }),
+      ]),
+      Animated.delay(levelUp ? 1800 : 1100),
+      Animated.timing(opacity, { toValue: 0, duration: 400, useNativeDriver: true }),
+    ]).start(() => onDoneRef.current());
+    // Runs once per mount — the parent keys this component per feed.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  if (amount <= 0) {
+    return (
+      <Animated.View
+        pointerEvents="none"
+        style={[styles.xpGainInline, { opacity, transform: [{ scale }] }]}
+      >
+        <Text style={styles.xpCapText}>Daily XP cap reached</Text>
+      </Animated.View>
+    );
+  }
+
+  return (
+    <Animated.View
+      pointerEvents="none"
+      style={[styles.xpGainInline, { opacity, transform: [{ scale }] }]}
+    >
+      <Text style={styles.xpGainText}>+{amount} XP</Text>
+      {levelUp && (
+        <Text style={styles.levelUpText}>🎉 Level Up! Now Level {newLevel}</Text>
+      )}
+    </Animated.View>
+  );
+}
+
+/** XP Progress Bar — the fill and the XP total count up whenever XP changes. */
+function XPProgressBar({ ownership, gain, onGainDone }: {
+  ownership: OwnershipInfo;
+  gain: (FeedResult & { seq: number }) | null;
+  onGainDone: () => void;
+}) {
   const currentLevelXp = getCurrentLevelXp(ownership.level);
   const nextLevelXp = getNextLevelXp(ownership.level);
   const xpInLevel = ownership.xp - currentLevelXp;
   const xpNeeded = nextLevelXp - currentLevelXp;
   const progress = ownership.level >= 10 ? 1 : Math.min(xpInLevel / xpNeeded, 1);
 
+  const animatedProgress = useRef(new Animated.Value(progress)).current;
+  const prevLevelRef = useRef(ownership.level);
+
+  // Count the displayed XP total up (rolling-number effect) whenever XP changes.
+  const [displayXp, setDisplayXp] = useState(ownership.xp);
+  const xpCounter = useRef(new Animated.Value(ownership.xp)).current;
+
+  useEffect(() => {
+    const listenerId = xpCounter.addListener(({ value }) => {
+      setDisplayXp(Math.round(value));
+    });
+    Animated.timing(xpCounter, {
+      toValue: ownership.xp,
+      duration: 800,
+      useNativeDriver: false, // listener-driven text, no native prop to animate
+    }).start(() => setDisplayXp(ownership.xp));
+    return () => xpCounter.removeListener(listenerId);
+  }, [ownership.xp, xpCounter]);
+
+  useEffect(() => {
+    if (prevLevelRef.current !== ownership.level) {
+      // On level-up the bar resets to the new level's scale: snap back to 0
+      // then fill to the new position so the animation reads as "rolled over".
+      prevLevelRef.current = ownership.level;
+      animatedProgress.setValue(0);
+    }
+    Animated.timing(animatedProgress, {
+      toValue: progress,
+      duration: 800,
+      useNativeDriver: false, // width isn't supported by the native driver
+    }).start();
+  }, [progress, ownership.level, animatedProgress]);
+
+  const width = animatedProgress.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['0%', '100%'],
+  });
+
   return (
     <View style={styles.xpContainer}>
       <View style={styles.xpHeader}>
         <Text style={styles.xpLevelText}>Level {ownership.level}</Text>
-        <Text style={styles.xpValueText}>{ownership.xp} XP</Text>
+        <View style={styles.xpValueRow}>
+          {gain && (
+            <InlineXPGain
+              key={gain.seq}
+              amount={gain.xpAwarded}
+              levelUp={gain.levelUp}
+              newLevel={gain.newLevel}
+              onDone={onGainDone}
+            />
+          )}
+          <Text style={styles.xpValueText}>{displayXp} XP</Text>
+        </View>
       </View>
       <View style={styles.xpBarBackground}>
-        <View style={[styles.xpBarFill, { width: `${progress * 100}%` }]} />
+        <Animated.View style={[styles.xpBarFill, { width }]} />
       </View>
       {ownership.level < 10 && (
         <Text style={styles.xpNextLevel}>
@@ -158,21 +268,26 @@ function OwnerLeaderboard({ catId }: { catId: string }) {
   const [entries, setEntries] = useState<LeaderboardEntry[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    async function fetchLeaderboard() {
-      try {
-        const data = await api.get<{ entries: LeaderboardEntry[] }>(
-          `/cats/${catId}/leaderboard?limit=20`,
-        );
-        setEntries(Array.isArray(data?.entries) ? data.entries : []);
-      } catch {
-        setEntries([]);
-      } finally {
-        setLoading(false);
-      }
+  const fetchLeaderboard = useCallback(async () => {
+    try {
+      const data = await api.get<{ entries: LeaderboardEntry[] }>(
+        `/cats/${catId}/leaderboard?limit=20`,
+      );
+      setEntries(Array.isArray(data?.entries) ? data.entries : []);
+    } catch {
+      setEntries([]);
+    } finally {
+      setLoading(false);
     }
-    fetchLeaderboard();
   }, [catId]);
+
+  // Refetch whenever the screen regains focus so rankings reflect XP earned
+  // since the profile was first opened (e.g. after feeding).
+  useFocusEffect(
+    useCallback(() => {
+      fetchLeaderboard();
+    }, [fetchLeaderboard]),
+  );
 
   if (loading) {
     return (
@@ -260,26 +375,88 @@ export function CatProfileScreen() {
   const [nameDraft, setNameDraft] = useState('');
   const [savingName, setSavingName] = useState(false);
 
-  const fetchProfile = useCallback(async () => {
-    setLoading(true);
-    setError(null);
+  const [refreshing, setRefreshing] = useState(false);
+  const hasLoadedRef = useRef(false);
+
+  const [feedModalVisible, setFeedModalVisible] = useState(false);
+  // seq keys the popup so every feed remounts it and replays the animation
+  const [xpFeedback, setXpFeedback] = useState<(FeedResult & { seq: number }) | null>(null);
+  const feedSeqRef = useRef(0);
+
+  /** Fetch without toggling the full-screen spinner (for silent refreshes). */
+  const loadProfile = useCallback(async () => {
     try {
       const data = await api.get<CatProfileData>(`/cats/${catId}`);
       setProfileData(data);
+      setError(null);
     } catch (err) {
       setError('Failed to load cat profile');
-    } finally {
-      setLoading(false);
     }
   }, [catId]);
 
-  useEffect(() => {
-    fetchProfile();
-  }, [fetchProfile]);
+  const fetchProfile = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    await loadProfile();
+    setLoading(false);
+  }, [loadProfile]);
+
+  // First focus: full load with spinner. Later focuses (e.g. returning from
+  // the feeding flow): silent refetch so XP/level reflect new donations.
+  useFocusEffect(
+    useCallback(() => {
+      if (!hasLoadedRef.current) {
+        hasLoadedRef.current = true;
+        fetchProfile();
+      } else {
+        loadProfile();
+      }
+    }, [fetchProfile, loadProfile]),
+  );
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await loadProfile();
+    setRefreshing(false);
+  }, [loadProfile]);
 
   const handleFeedCat = () => {
-    navigation.navigate('WebARFeeding', { catId });
+    setFeedModalVisible(true);
   };
+
+  /** Donation succeeded: close the modal, bump XP locally so the bar animates
+   *  right away, show the "+X XP" toast, then confirm with the server. */
+  const handleFeedSuccess = useCallback(
+    (result: FeedResult) => {
+      setFeedModalVisible(false);
+      // Always show feedback — a 0-XP result means the daily cap was hit,
+      // which the popup explains instead of failing silently.
+      feedSeqRef.current += 1;
+      setXpFeedback({ ...result, seq: feedSeqRef.current });
+      if (result.xpAwarded > 0) {
+        setProfileData((prev) => {
+          if (!prev) return prev;
+          const prevOwnership = prev.ownership ?? { level: 0, xp: 0, nextLevelXp: 1 };
+          const newXp = prevOwnership.xp + result.xpAwarded;
+          const newLevel = result.levelUp && result.newLevel != null
+            ? result.newLevel
+            : prevOwnership.level;
+          return {
+            ...prev,
+            ownership: {
+              ...prevOwnership,
+              xp: newXp,
+              level: newLevel,
+              nextLevelXp: getNextLevelXp(newLevel),
+            },
+          };
+        });
+      }
+      // Reconcile with the server (leaderboard, ownership, sightings).
+      loadProfile();
+    },
+    [loadProfile],
+  );
 
   const startEditName = () => {
     setNameDraft(profileData?.cat.name ?? '');
@@ -400,7 +577,11 @@ export function CatProfileScreen() {
 
   return (
     <SafeAreaView style={styles.scrollContainer} edges={['top']}>
-    <ScrollView style={styles.scrollContainer} contentContainerStyle={styles.scrollContent}>
+    <ScrollView
+      style={styles.scrollContainer}
+      contentContainerStyle={styles.scrollContent}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+    >
       {/* Back button */}
       <TouchableOpacity
         style={styles.backButton}
@@ -482,8 +663,13 @@ export function CatProfileScreen() {
 
       {/* Ownership Level & XP Progress Bar */}
       {/* Req 6.7: accumulated XP always visible; Req 14.3 */}
-      {ownership && <XPProgressBar ownership={ownership} />}
-      {!ownership && (
+      {ownership ? (
+        <XPProgressBar
+          ownership={ownership}
+          gain={xpFeedback}
+          onGainDone={() => setXpFeedback(null)}
+        />
+      ) : (
         <View style={styles.xpContainer}>
           <Text style={styles.xpLevelText}>Level 0 — Discovered</Text>
           <Text style={styles.xpValueText}>0 XP</Text>
@@ -566,6 +752,14 @@ export function CatProfileScreen() {
         )}
       </View>
     </ScrollView>
+
+    {/* Floating feeding window */}
+    <FeedCatModal
+      visible={feedModalVisible}
+      catId={catId}
+      onClose={() => setFeedModalVisible(false)}
+      onSuccess={handleFeedSuccess}
+    />
     </SafeAreaView>
   );
 }
@@ -711,6 +905,30 @@ const styles = StyleSheet.create({
   },
 
   // XP Progress
+  xpValueRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  xpGainInline: {
+    alignItems: 'flex-end',
+  },
+  xpGainText: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#4CAF50',
+  },
+  levelUpText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#FF8C00',
+    marginTop: 1,
+  },
+  xpCapText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#E6A23C',
+  },
   xpContainer: {
     marginHorizontal: 16,
     marginBottom: 16,

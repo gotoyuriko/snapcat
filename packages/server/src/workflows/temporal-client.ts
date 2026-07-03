@@ -114,7 +114,7 @@ export async function startDonationEscrowWorkflow(
   const handle = await client.workflow.start(donationEscrowWorkflow, {
     taskQueue: DONATION_TASK_QUEUE,
     workflowId: donationId, // Idempotence key
-    args: [donationId, donorId, catId, amountCents],
+    args: [donationId, donorId, catId, amountCents, config.donation.escrowHold],
   });
 
   return handle.workflowId;

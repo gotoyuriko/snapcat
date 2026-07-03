@@ -1,10 +1,8 @@
 import { PrismaClient } from '@prisma/client';
-import { GamificationService } from '../../modules/gamification/gamification.service';
 import { AlertsService } from '../../modules/alerts/alerts.service';
 
 const prisma = new PrismaClient();
 const alertsService = new AlertsService();
-const gamificationService = new GamificationService(prisma, alertsService);
 
 /**
  * Release the escrowed donation to the cat's community pool.
@@ -26,20 +24,6 @@ export async function releaseToCatPool(
   console.log(
     `[donation-escrow] Released ${amountCents} cents to cat pool for cat ${catId}, donation ${donationId}`,
   );
-}
-
-/**
- * Award XP to the donor for their donation action.
- * XP = amountCents / 100 (MYR price), capped at 200 XP/day per cat.
- *
- * Requirement 10.7: Donor receives XP proportional to donation value.
- */
-export async function awardDonationXP(
-  donorId: string,
-  catId: string,
-  amountCents: number,
-): Promise<void> {
-  await gamificationService.recordAction(donorId, catId, 'donation', amountCents);
 }
 
 /**

@@ -35,8 +35,19 @@ export function WebARFeedingScreen({ route, navigation }: Props) {
       if (isDonating) return;
       setIsDonating(true);
       try {
-        await api.post('/donations', { catId, foodItemId });
-        Alert.alert('Success', 'Food donated successfully!', [
+        const result = await api.post<{
+          xpAwarded?: number;
+          newLevel?: number;
+          levelUp?: boolean;
+        }>('/donations', { catId, foodItemId });
+        const xpAwarded = result?.xpAwarded ?? 0;
+        const message =
+          xpAwarded > 0
+            ? `Food donated successfully! +${xpAwarded} XP${
+                result?.levelUp ? ` — Level up! Now Level ${result.newLevel}` : ''
+              }`
+            : 'Food donated successfully!';
+        Alert.alert('Success', message, [
           { text: 'OK', onPress: () => navigation.goBack() },
         ]);
       } catch (error) {

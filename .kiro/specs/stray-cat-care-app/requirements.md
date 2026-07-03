@@ -197,7 +197,7 @@ CodingKitty is a community-driven stray cat care app for Malaysia. Users discove
 5. WHEN a User submits a food donation from their inventory, THE System SHALL deduct one unit of the donated food item from the User's inventory and create a Donation record.
 6. IF a User attempts to donate a food item they do not have in their inventory at the time of the donation attempt, THEN THE System SHALL reject the transaction, SHALL NOT create a Donation record, and SHALL NOT persist any record of the rejected transaction.
 7. WHEN a food donation is accepted, THE System SHALL start a Temporal_Worker DonationEscrow workflow that holds the item value for 24 hours before releasing it to the cat's care pool.
-8. WHEN the DonationEscrow workflow releases funds, THE System SHALL award XP to the donor per Requirement 6.3.
+8. WHEN a food donation is accepted (inventory deducted and Donation record created), THE System SHALL immediately award XP to the donor per Requirement 6.3 and SHALL return the XP result in the donation response so the app can confirm the feeding instantly; the DonationEscrow workflow SHALL release only the funds to the cat's care pool.
 9. WHEN a payment webhook is received from the payment gateway, THE System SHALL validate the webhook signature before processing the event.
 10. THE System SHALL route the payment through security scanning (Aikido if free tier is available, otherwise `npm audit` + Trivy) before calling the payment gateway.
 

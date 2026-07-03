@@ -690,15 +690,15 @@ sequenceDiagram
     U->>GW: POST /donations { catId, foodItem, amountCents }
     GW->>DON: donateFoodToCat(userId, catId, foodItem, amountCents)
     DON->>DON: deductWallet(userId, amountCents)
+    DON->>GAME: awardXP(donorId, "donation", xpAmount)
+    GAME-->>DON: xpAwarded (immediate — instant feeding confirmation)
     DON->>TW: startWorkflow("DonationEscrow", { donationId })
     TW-->>DON: workflowId
-    DON-->>GW: 201 { donationId, status: "escrowed" }
-    GW-->>U: 201 Donation submitted
+    DON-->>GW: 201 { donationId, status: "escrowed", xpAwarded, levelUp }
+    GW-->>U: 201 Donation submitted (+XP shown in app)
 
-    TW->>TW: escrow(amountCents, holdDuration=24h)
+    TW->>TW: escrow(amountCents, holdDuration — 24h prod, configurable via DONATION_ESCROW_HOLD)
     TW->>DON: releaseToPool(catId, amountCents)
-    TW->>GAME: awardXP(donorId, "donation", xpAmount)
-    GAME-->>TW: xpAwarded
     TW->>PUSH: notify(catOwnerIds, "<User> donated food to <Cat>!")
 ```
 
@@ -896,7 +896,7 @@ Key integration test scenarios:
 
 - **Full scan flow** (Diagram 1): Submit a photo stub, traverse all three recognition branches, assert Sighting and Ownership records are written correctly and XP is awarded.
 - **Medical reimbursement workflow** (Diagram 2): Walk the full Temporal workflow through staff approval, partner acceptance, invoice verification, and reimbursement release; assert status transitions and XP award.
-- **Donation escrow workflow** (Diagram 3): Top up wallet, donate, assert escrow hold and release; assert wallet balance and donor XP are updated atomically.
+- **Donation escrow workflow** (Diagram 3): Top up wallet, donate, assert donor XP is awarded immediately in the donation response, then assert escrow hold and funds release; assert wallet balance updates atomically.
 - **Geo-map visibility**: Insert cats with and without UserCatDiscovery records; assert the map pin response omits name/photo/exact location for undiscovered cats.
 - **Ownership gate enforcement**: Attempt ChatMessage submission as Lvl0 user; assert HTTP 403; promote to Lvl1; assert HTTP 201. Attempt MedicalRequest submission as Lvl1–Lvl6 user; assert HTTP 403; promote to Lvl7; assert HTTP 201.
 

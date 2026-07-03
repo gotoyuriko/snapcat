@@ -15,6 +15,14 @@ export const config = {
     address: process.env.TEMPORAL_ADDRESS || 'localhost:7233',
     namespace: process.env.TEMPORAL_NAMESPACE || 'default',
   },
+  donation: {
+    /**
+     * Escrow hold before funds release + donor XP award (Req 10.6).
+     * ms-style duration string; shorten in dev (.env) to see donation XP
+     * without waiting a day.
+     */
+    escrowHold: process.env.DONATION_ESCROW_HOLD || '24 hours',
+  },
   redis: {
     url: process.env.REDIS_URL || 'redis://localhost:6379',
   },

@@ -6,6 +6,7 @@ import { DonationService } from './donation.service';
 const createDonationSchema = z.object({
   catId: z.string().uuid(),
   foodItemId: z.string().uuid(),
+  quantity: z.number().int().min(1).max(99).optional().default(1),
 });
 
 /**
@@ -38,15 +39,19 @@ export class DonationController {
         return;
       }
 
-      const { catId, foodItemId } = parsed.data;
+      const { catId, foodItemId, quantity } = parsed.data;
 
-      const donation = await this.donationService.createDonation(userId, catId, foodItemId);
+      const donation = await this.donationService.createDonation(userId, catId, foodItemId, quantity);
 
       res.status(201).json(donation);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Internal server error';
 
-      if (message === 'Insufficient inventory' || message === 'Food item not found') {
+      if (
+        message === 'Insufficient inventory' ||
+        message === 'Food item not found' ||
+        message === 'Invalid quantity'
+      ) {
         res.status(400).json({ error: message });
         return;
       }
