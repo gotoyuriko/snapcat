@@ -8,22 +8,23 @@ import { AlertsService } from '../../alerts/alerts.service';
  *
  * 1. For any sequence of positive XP increments, the ownership level never decreases (monotonicity).
  * 2. For any cumulative XP value, calculateLevel(xp) returns the correct level per thresholds.
- * 3. Level caps at 10 for any XP value (even extremely large ones beyond 486).
+ * 3. Level caps at 10 for any XP value (even extremely large ones beyond 226).
  * 4. If XP decreases below a threshold, the level correctly reflects the lower XP (demotion).
  */
 
+// Requirement 6.6 thresholds: Lvl1 = 1, then each increment grows by 5.
 const LEVEL_THRESHOLDS: readonly number[] = [
   0,    // Lvl0
   1,    // Lvl1
   6,    // Lvl2
   16,   // Lvl3
   31,   // Lvl4
-  56,   // Lvl5
-  96,   // Lvl6
-  156,  // Lvl7
-  236,  // Lvl8
-  336,  // Lvl9
-  486,  // Lvl10
+  51,   // Lvl5
+  76,   // Lvl6
+  106,  // Lvl7
+  141,  // Lvl8
+  181,  // Lvl9
+  226,  // Lvl10
 ];
 
 // --- Mock Prisma with stateful ownership XP tracking ---
@@ -68,6 +69,12 @@ function createStatefulMockPrisma() {
       aggregate: jest.fn().mockResolvedValue({ _sum: { xpAwarded: 0 } }),
       create: jest.fn().mockResolvedValue({}),
     },
+    // Daily once-per-scan gate disabled here (count always 0) so every scan
+    // awards XP — the gate itself is covered by the service unit tests.
+    scanXpLog: {
+      count: jest.fn().mockResolvedValue(0),
+      create: jest.fn().mockResolvedValue({}),
+    },
     __getOwnership() {
       return ownershipRecord;
     },
@@ -98,7 +105,7 @@ describe('GamificationService — Ownership Promotion Monotonicity Property Test
   it('ownership level never decreases when XP only increases (monotonicity)', async () => {
     await fc.assert(
       fc.asyncProperty(
-        // Generate a sequence of 2–15 scan actions (each awards 50 XP)
+        // Generate a sequence of 2–15 scan actions (each awards 3 XP)
         fc.integer({ min: 2, max: 15 }),
         async (numScans: number) => {
           const prisma = createStatefulMockPrisma();
@@ -161,7 +168,7 @@ describe('GamificationService — Ownership Promotion Monotonicity Property Test
   /**
    * **Validates: Requirements 6.8**
    *
-   * Property: For any XP value (even extremely large ones beyond 486),
+   * Property: For any XP value (even extremely large ones beyond 226),
    * the level never exceeds 10 (max level). XP accumulates beyond Lvl10
    * but does not unlock additional levels.
    */

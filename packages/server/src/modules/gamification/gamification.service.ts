@@ -6,24 +6,26 @@ import { AlertsService } from '../alerts/alerts.service';
  * Ownership level thresholds (cumulative per-cat XP).
  * Index = level, value = minimum cumulative XP required.
  */
+// Requirement 6.6: Lvl1 = 1 XP, then each level's increment grows by 5
+// (Lvl2 = +5, Lvl3 = +10, … Lvl10 = +45).
 const LEVEL_THRESHOLDS: readonly number[] = [
   0,    // Lvl0 — Discovered
-  1,    // Lvl1 — Owner (unlocks chat + medical)
+  1,    // Lvl1 — Owner (unlocks chat + notifications)
   6,    // Lvl2
   16,   // Lvl3
   31,   // Lvl4
-  56,   // Lvl5
-  96,   // Lvl6
-  156,  // Lvl7
-  236,  // Lvl8
-  336,  // Lvl9
-  486,  // Lvl10 — Max level
+  51,   // Lvl5
+  76,   // Lvl6
+  106,  // Lvl7 — unlocks medical/grooming requests
+  141,  // Lvl8
+  181,  // Lvl9
+  226,  // Lvl10 — Max level
 ];
 
-/** XP awarded per non-donation action */
+/** XP awarded per non-donation action (Requirements 6.1, 6.2, 6.4) */
 const ACTION_XP: Record<Exclude<GamificationAction, 'donation'>, number> = {
   discover_new: 100,
-  scan: 50,
+  scan: 3,
   medical_reimbursed: 100,
 };
 
@@ -59,6 +61,7 @@ export class GamificationService {
    *
    * For donation actions, `amountCents` is required (XP = amountCents / 100).
    * Donation XP is capped at 200/day per user per cat.
+   * Scan XP is awarded once per unique daily scan per user per cat (Req 6.2).
    */
   async recordAction(
     userId: string,
@@ -82,36 +85,48 @@ export class GamificationService {
 
       if (xpToAward <= 0) {
         // Cap already reached — no XP awarded
-        const ownership = await this.prisma.ownership.findUnique({
-          where: { userId_catId: { userId, catId } },
-        });
-        return {
-          xpAwarded: 0,
-          newLevel: ownership?.level ?? 0,
-          levelUp: false,
-        };
+        return this.zeroResult(userId, catId);
       }
+    } else if (action === 'scan') {
+      // Requirement 6.2: 3 XP once per unique daily scan per cat
+      const alreadyAwardedToday = await this.hasScanXpToday(userId, catId);
+      if (alreadyAwardedToday) {
+        return this.zeroResult(userId, catId);
+      }
+      xpToAward = ACTION_XP.scan;
     } else {
       xpToAward = ACTION_XP[action];
     }
 
-    // 2. Update global User.xp
-    await this.prisma.user.update({
-      where: { id: userId },
-      data: { xp: { increment: xpToAward } },
-    });
+    // 2. Update global User.xp — only discovery awards global XP (Req 6.1);
+    //    scans, donations, and medical reimbursements award per-cat XP only
+    //    (Reqs 6.2–6.4).
+    if (action === 'discover_new') {
+      await this.prisma.user.update({
+        where: { id: userId },
+        data: { xp: { increment: xpToAward } },
+      });
+    }
 
     // 3. Update per-cat Ownership XP and evaluate level promotion
     const result = await this.updateOwnershipXP(userId, catId, xpToAward);
 
-    // 4. Record donation XP in Donation table for daily cap tracking is handled
-    //    externally by the Donation module — we only track via Ownership.xp here.
-    //    For donation cap tracking, we use a lightweight record.
+    // 4. Log awards that carry a daily limit so future calls can enforce it
     if (action === 'donation') {
       await this.recordDonationXpEntry(userId, catId, xpToAward);
+    } else if (action === 'scan') {
+      await this.recordScanXpEntry(userId, catId, xpToAward);
     }
 
     return result;
+  }
+
+  /** XPResult for a call that awards nothing, reporting the current level. */
+  private async zeroResult(userId: string, catId: string): Promise<XPResult> {
+    const ownership = await this.prisma.ownership.findUnique({
+      where: { userId_catId: { userId, catId } },
+    });
+    return { xpAwarded: 0, newLevel: ownership?.level ?? 0, levelUp: false };
   }
 
   /**
@@ -262,6 +277,41 @@ export class GamificationService {
     xpAwarded: number,
   ): Promise<void> {
     await this.prisma.donationXpLog.create({
+      data: {
+        userId,
+        catId,
+        xpAwarded,
+      },
+    });
+  }
+
+  /**
+   * Whether scan XP was already awarded today (UTC) for a user–cat pair.
+   * Uses the ScanXpLog table for tracking (Requirement 6.2).
+   */
+  private async hasScanXpToday(userId: string, catId: string): Promise<boolean> {
+    const count = await this.prisma.scanXpLog.count({
+      where: {
+        userId,
+        catId,
+        createdAt: {
+          gte: getUtcDayStart(),
+          lt: getUtcDayEnd(),
+        },
+      },
+    });
+    return count > 0;
+  }
+
+  /**
+   * Records a scan XP entry for once-per-day tracking.
+   */
+  private async recordScanXpEntry(
+    userId: string,
+    catId: string,
+    xpAwarded: number,
+  ): Promise<void> {
+    await this.prisma.scanXpLog.create({
       data: {
         userId,
         catId,

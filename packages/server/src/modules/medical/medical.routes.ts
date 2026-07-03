@@ -6,7 +6,7 @@ import { MedicalController } from './medical.controller';
 
 /**
  * Medical Routes
- * POST /              — Create a medical care request (Lvl1+ ownership required)
+ * POST /              — Create a medical care request (Lvl7+ ownership required)
  * POST /:id/approve   — Approve request (staff/partner) — TODO
  * POST /:id/document  — Upload receipt/document — TODO
  * POST /:id/complete  — Mark as completed — TODO

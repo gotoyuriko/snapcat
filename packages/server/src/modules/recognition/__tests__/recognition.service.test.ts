@@ -35,11 +35,17 @@ const mockPrisma = {
   },
   userCatDiscovery: {
     create: jest.fn(),
+    upsert: jest.fn(),
   },
   user: {
     update: jest.fn(),
   },
 } as unknown as jest.Mocked<PrismaClient>;
+
+// Mock GamificationService — recognition delegates all XP awarding to it
+const mockGamificationService = {
+  recordAction: jest.fn(),
+};
 
 // Mock gps-fuzz to return deterministic values
 jest.mock('../../sighting/gps-fuzz', () => ({
@@ -74,6 +80,7 @@ describe('RecognitionService', () => {
       mockMegaDescriptorClient,
       mockVectorService,
       mockPrisma,
+      mockGamificationService as any,
     );
 
     // Default: embed returns a 512-dim vector
@@ -81,6 +88,14 @@ describe('RecognitionService', () => {
 
     // Default: user update returns a user record
     (mockPrisma.user as any).update.mockResolvedValue({ id: testUserId, xp: 110 });
+
+    // Default: XP awards — 100 XP for discovery, 3 XP for a re-sight scan
+    mockGamificationService.recordAction.mockImplementation(
+      async (_userId: string, _catId: string, action: string) =>
+        action === 'discover_new'
+          ? { xpAwarded: 100, newLevel: 6, levelUp: true }
+          : { xpAwarded: 3, newLevel: 1, levelUp: false },
+    );
 
     // Default: cat findUniqueOrThrow returns a cat
     (mockPrisma.cat as any).findUniqueOrThrow.mockResolvedValue(fakeCatRecord);
@@ -100,6 +115,7 @@ describe('RecognitionService', () => {
     // Default: sighting and discovery creation resolve
     (mockPrisma.sighting as any).create.mockResolvedValue({});
     (mockPrisma.userCatDiscovery as any).create.mockResolvedValue({});
+    (mockPrisma.userCatDiscovery as any).upsert.mockResolvedValue({});
 
     // Default: vector store resolves
     (mockVectorService.store as jest.Mock).mockResolvedValue(undefined);
@@ -193,13 +209,22 @@ describe('RecognitionService', () => {
         );
       });
 
-      it('should update user XP (gamification)', async () => {
+      it('should award scan XP through the gamification service', async () => {
         await service.recognizeCat(testPhoto, testGPS, testUserId);
 
-        expect((mockPrisma.user as any).update).toHaveBeenCalledWith(
+        expect(mockGamificationService.recordAction).toHaveBeenCalledWith(
+          testUserId,
+          'cat-abc',
+          'scan',
+        );
+      });
+
+      it('should upsert a UserCatDiscovery record for the scanner', async () => {
+        await service.recognizeCat(testPhoto, testGPS, testUserId);
+
+        expect((mockPrisma.userCatDiscovery as any).upsert).toHaveBeenCalledWith(
           expect.objectContaining({
-            where: { id: testUserId },
-            data: { xp: { increment: expect.any(Number) } },
+            where: { userId_catId: { userId: testUserId, catId: 'cat-abc' } },
           }),
         );
       });
@@ -238,7 +263,7 @@ describe('RecognitionService', () => {
       it('should NOT award XP (user must confirm first)', async () => {
         await service.recognizeCat(testPhoto, testGPS, testUserId);
 
-        expect((mockPrisma.user as any).update).not.toHaveBeenCalled();
+        expect(mockGamificationService.recordAction).not.toHaveBeenCalled();
       });
     });
 
@@ -256,8 +281,13 @@ describe('RecognitionService', () => {
         expect(result.result).toBe('new_cat');
         if (result.result === 'new_cat') {
           expect(result.cat.id).toBe('new-cat-id');
-          expect(result.xpAwarded).toBeGreaterThan(0);
+          expect(result.xpAwarded).toBe(100);
         }
+        expect(mockGamificationService.recordAction).toHaveBeenCalledWith(
+          testUserId,
+          'new-cat-id',
+          'discover_new',
+        );
       });
 
       it('should create a new Cat record', async () => {
@@ -371,9 +401,12 @@ describe('RecognitionService', () => {
         ]);
       });
 
-      it('should set levelUp = true when user crosses a level boundary', async () => {
-        // User had 95 XP, gets 10 → 105 XP (crosses 100 boundary)
-        (mockPrisma.user as any).update.mockResolvedValue({ id: testUserId, xp: 105 });
+      it('should set levelUp = true when the gamification service reports a promotion', async () => {
+        mockGamificationService.recordAction.mockResolvedValue({
+          xpAwarded: 3,
+          newLevel: 2,
+          levelUp: true,
+        });
 
         const result = await service.recognizeCat(testPhoto, testGPS, testUserId);
 
@@ -382,9 +415,12 @@ describe('RecognitionService', () => {
         }
       });
 
-      it('should set levelUp = false when user stays in same level', async () => {
-        // User had 50 XP, gets 10 → 60 XP (stays in level 0)
-        (mockPrisma.user as any).update.mockResolvedValue({ id: testUserId, xp: 60 });
+      it('should set levelUp = false when no promotion occurs', async () => {
+        mockGamificationService.recordAction.mockResolvedValue({
+          xpAwarded: 3,
+          newLevel: 1,
+          levelUp: false,
+        });
 
         const result = await service.recognizeCat(testPhoto, testGPS, testUserId);
 

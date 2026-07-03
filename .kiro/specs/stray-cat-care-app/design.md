@@ -240,8 +240,8 @@ interface Partner {
 
 ### Gamification Module
 
-- Awards XP per action: scan/discover (50 XP), donation (10 XP per MYR), medical request (100 XP)
-- Checks Ownership XP threshold (500 XP default) → promotes Discovered → Owner (level 1)
+- Awards XP per action: discover new cat (100 XP, global + per-cat), re-sight scan (3 XP, once per unique daily scan per cat), donation (1 XP per MYR, capped at 200 XP/day per cat), medical reimbursement (100 XP)
+- Checks Ownership XP thresholds (Lvl1 = 1 XP cumulative per-cat) → promotes Discovered → Owner (level 1)
 - Broadcasts level-up notifications via Alerts Module
 
 ### Donation / Wallet Module
@@ -253,7 +253,7 @@ interface Partner {
 ### Medical Module
 
 - Creates MedicalRequest → starts Temporal medical-reimbursement workflow
-- Gated: requester must be Lvl1+ Owner of the cat
+- Gated: requester must be Lvl7+ Owner of the cat (Requirements 8.3, 17.7 — loyalty threshold; shown greyed out with "Available after Level 7" below Lvl7)
 - Attaches supporting documents to object storage
 
 ### Alerts Module
@@ -615,8 +615,8 @@ sequenceDiagram
 
     U->>GW: POST /medical-requests { catId, type, docs }
     GW->>MED: createMedicalRequest(userId, catId, type, docs)
-    MED->>MED: checkOwnership(userId, catId) — must be Lvl1+
-    MED-->>GW: 403 if not owner
+    MED->>MED: checkOwnership(userId, catId) — must be Lvl7+
+    MED-->>GW: 403 if below Lvl7
 
     MED->>TW: startWorkflow("MedicalReimbursement", { requestId })
     TW-->>MED: workflowId
@@ -715,7 +715,7 @@ The **Cat Profile** is the convergence screen in the user flow — all paths (ma
 - "Feed Cat" button (WebAR) — available to Lvl0+ (discovered)
 - Owner Leaderboard — ranked list of all users who have contributed to this cat, sorted by per-cat XP
 - "Community Chat" — gated to Lvl1+ Owners
-- "Request Medical / Grooming" — gated to Lvl1+ Owners
+- "Request Medical / Grooming" — gated to Lvl7+ Owners; below Lvl7 shown greyed out with "Available after Level 7"
 
 ### Owner Leaderboard
 
@@ -766,7 +766,7 @@ This keeps AR entirely browser-based — no native AR SDK or paid service (like 
 | Action                        | XP Awarded | Notes                            |
 | ----------------------------- | ---------- | -------------------------------- |
 | First scan (discover new cat) | 100 XP     | Bonus for being first discoverer |
-| Scan existing cat             | 50 XP      | Per unique daily scan per cat    |
+| Scan existing cat             | 3 XP       | Per unique daily scan per cat    |
 | Donate food item (1 RM)       | 1 XP       | e.g., kibble = 1 RM = 1 XP       |
 | Donate food item (5 RM)       | 5 XP       | e.g., cat snack = 5 RM = 5 XP    |
 | Donate food item (10 RM)      | 10 XP      | e.g., tuna can = 10 RM = 10 XP   |
@@ -776,19 +776,21 @@ This keeps AR entirely browser-based — no native AR SDK or paid service (like 
 
 **Ownership Level Thresholds (cumulative per-cat XP):**
 
-| Level | Cumulative XP | Status                         |
-| ----- | ------------- | ------------------------------ |
-| Lvl0  | 0             | Discovered                     |
-| Lvl1  | 1             | Owner (unlocks chat + medical) |
-| Lvl2  | 6             |                                |
-| Lvl3  | 16            |                                |
-| Lvl4  | 31            |                                |
-| Lvl5  | 56            |                                |
-| Lvl6  | 96            |                                |
-| Lvl7  | 156           |                                |
-| Lvl8  | 236           |                                |
-| Lvl9  | 336           |                                |
-| Lvl10 | 486           | Max level                      |
+Each level's increment grows by 5 XP (Lvl1 = +1, Lvl2 = +5, Lvl3 = +10, … Lvl10 = +45), per Requirement 6.6.
+
+| Level | Cumulative XP | Status                                 |
+| ----- | ------------- | -------------------------------------- |
+| Lvl0  | 0             | Discovered                             |
+| Lvl1  | 1             | Owner (unlocks chat + notifications)   |
+| Lvl2  | 6             |                                        |
+| Lvl3  | 16            |                                        |
+| Lvl4  | 31            |                                        |
+| Lvl5  | 51            |                                        |
+| Lvl6  | 76            |                                        |
+| Lvl7  | 106           | Unlocks medical/grooming requests      |
+| Lvl8  | 141           |                                        |
+| Lvl9  | 181           |                                        |
+| Lvl10 | 226           | Max level                              |
 
 XP counters never reset on level-up; accumulated XP remains visible to the User at all times. Levels can decrease if XP falls below a threshold.
 
@@ -814,9 +816,9 @@ XP counters never reset on level-up; accumulated XP remains visible to the User 
 
 ### Error Scenario 3: Ownership Gate Failure (Chat / Medical)
 
-**Condition**: A user with no Ownership record (or Lvl0) attempts to submit a ChatMessage or MedicalRequest for a cat.
-**Response**: Auth middleware or Medical Module returns HTTP 403 "Forbidden — you must be a Lvl1+ owner of this cat".
-**Recovery**: No message or request is persisted. User is shown the ownership requirements and their current XP towards Lvl1.
+**Condition**: A user below the required ownership level attempts to submit a ChatMessage (requires Lvl1+) or a MedicalRequest (requires Lvl7+) for a cat.
+**Response**: Auth middleware or Medical Module returns HTTP 403 "Insufficient ownership level" with the required and current levels.
+**Recovery**: No message or request is persisted. User is shown the ownership requirements and their current XP towards the required level.
 
 ---
 
@@ -896,7 +898,7 @@ Key integration test scenarios:
 - **Medical reimbursement workflow** (Diagram 2): Walk the full Temporal workflow through staff approval, partner acceptance, invoice verification, and reimbursement release; assert status transitions and XP award.
 - **Donation escrow workflow** (Diagram 3): Top up wallet, donate, assert escrow hold and release; assert wallet balance and donor XP are updated atomically.
 - **Geo-map visibility**: Insert cats with and without UserCatDiscovery records; assert the map pin response omits name/photo/exact location for undiscovered cats.
-- **Ownership gate enforcement**: Attempt ChatMessage and MedicalRequest submission as Lvl0 user; assert HTTP 403; promote to Lvl1; assert HTTP 201.
+- **Ownership gate enforcement**: Attempt ChatMessage submission as Lvl0 user; assert HTTP 403; promote to Lvl1; assert HTTP 201. Attempt MedicalRequest submission as Lvl1–Lvl6 user; assert HTTP 403; promote to Lvl7; assert HTTP 201.
 
 ---
 

@@ -75,6 +75,11 @@ function createStatefulMockPrisma(hasDiscovery: boolean) {
       aggregate: jest.fn().mockResolvedValue({ _sum: { xpAwarded: 0 } }),
       create: jest.fn().mockResolvedValue({}),
     },
+    // Daily once-per-scan gate disabled (count always 0) — covered by unit tests
+    scanXpLog: {
+      count: jest.fn().mockResolvedValue(0),
+      create: jest.fn().mockResolvedValue({}),
+    },
     /** Check if ownership was created */
     __hasOwnership() {
       return ownershipRecord !== null;

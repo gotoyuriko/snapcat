@@ -32,6 +32,7 @@ model User {
   discoveredCats     Cat[]              @relation("FirstDiscoverer")
   refreshTokens      RefreshToken[]
   donationXpLogs     DonationXpLog[]
+  scanXpLogs         ScanXpLog[]
   notificationLogs   NotificationLog[]
 }
 
@@ -68,6 +69,7 @@ model Cat {
   medicalRequests MedicalRequest[]
   chatMessages    ChatMessage[]
   donationXpLogs  DonationXpLog[]
+  scanXpLogs      ScanXpLog[]
   embeddings      CatEmbedding[]
 
   // Indexes
@@ -235,6 +237,23 @@ model DonationXpLog {
   cat  Cat  @relation(fields: [catId], references: [id])
 
   // Index for daily cap queries
+  @@index([userId, catId, createdAt])
+}
+
+// Tracks scan XP awards so re-sighting XP is granted only once per unique
+// daily scan per user–cat pair (Requirement 6.2). Mirrors DonationXpLog.
+model ScanXpLog {
+  id        String   @id @default(uuid())
+  userId    String
+  catId     String
+  xpAwarded Int
+  createdAt DateTime @default(now())
+
+  // Relations
+  user User @relation(fields: [userId], references: [id])
+  cat  Cat  @relation(fields: [catId], references: [id])
+
+  // Index for once-per-day queries
   @@index([userId, catId, createdAt])
 }
 

@@ -3,6 +3,7 @@ import { Cat, OrchestrationResult } from '@codingkitty/shared';
 import { YoloClient } from './yolo.client';
 import { MegaDescriptorClient } from './megadescriptor.client';
 import { VectorService } from './vector.service';
+import { GamificationService } from '../gamification/gamification.service';
 import { fuzzCoordinates } from '../sighting/gps-fuzz';
 import { config } from '../../config';
 
@@ -20,12 +21,17 @@ export interface RawGPS {
  * YOLO detection → MegaDescriptor embedding → pgvector similarity search → sighting/gamification.
  */
 export class RecognitionService {
+  private readonly gamificationService: GamificationService;
+
   constructor(
     private readonly yoloClient: YoloClient,
     private readonly megaDescriptorClient: MegaDescriptorClient,
     private readonly vectorService: VectorService,
     private readonly prisma: PrismaClient,
-  ) {}
+    gamificationService?: GamificationService,
+  ) {
+    this.gamificationService = gamificationService ?? new GamificationService(prisma);
+  }
 
   /**
    * Main orchestrator: detect → embed → match → record.
@@ -135,24 +141,22 @@ export class RecognitionService {
       },
     });
 
-    // Award XP for sighting
-    // TODO: Replace with GamificationService.recordAction(userId, catId, "scan") when implemented
-    const xpAwarded = 10;
-    const userRecord = await this.prisma.user.update({
-      where: { id: userId },
-      data: { xp: { increment: xpAwarded } },
+    // Mark the cat as discovered by this scanner (Lvl0) — Ownership XP can
+    // only accrue against an existing UserCatDiscovery record (Req 14.3).
+    await this.prisma.userCatDiscovery.upsert({
+      where: { userId_catId: { userId, catId } },
+      update: {},
+      create: { userId, catId },
     });
 
-    // Level up check: every 100 XP is a new level
-    const oldLevel = Math.floor((userRecord.xp - xpAwarded) / 100);
-    const newLevel = Math.floor(userRecord.xp / 100);
-    const levelUp = newLevel > oldLevel;
+    // Award re-sighting XP: 3 XP once per unique daily scan per cat (Req 6.2)
+    const xpResult = await this.gamificationService.recordAction(userId, catId, 'scan');
 
     return {
       result: 'matched',
       cat: this.toCatDTO(cat),
-      xpAwarded,
-      levelUp,
+      xpAwarded: xpResult.xpAwarded,
+      levelUp: xpResult.levelUp,
     };
   }
 
@@ -220,18 +224,17 @@ export class RecognitionService {
       },
     });
 
-    // Award XP for discovery (higher than a sighting)
-    // TODO: Replace with GamificationService.recordAction(userId, catId, "discover_new") when implemented
-    const xpAwarded = 50;
-    await this.prisma.user.update({
-      where: { id: userId },
-      data: { xp: { increment: xpAwarded } },
-    });
+    // Award discovery XP: 100 XP to global total and per-cat XP (Req 6.1)
+    const xpResult = await this.gamificationService.recordAction(
+      userId,
+      newCat.id,
+      'discover_new',
+    );
 
     return {
       result: 'new_cat',
       cat: this.toCatDTO(newCat),
-      xpAwarded,
+      xpAwarded: xpResult.xpAwarded,
     };
   }
 

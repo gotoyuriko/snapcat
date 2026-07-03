@@ -27,6 +27,10 @@ function createMockPrisma() {
       aggregate: jest.fn().mockResolvedValue({ _sum: { xpAwarded: 0 } }),
       create: jest.fn().mockResolvedValue({}),
     },
+    scanXpLog: {
+      count: jest.fn().mockResolvedValue(0),
+      create: jest.fn().mockResolvedValue({}),
+    },
   } as any;
 }
 
@@ -55,20 +59,24 @@ describe('calculateLevel', () => {
     expect(calculateLevel(6)).toBe(2);
   });
 
-  it('returns 10 for xp=486', () => {
-    expect(calculateLevel(486)).toBe(10);
+  it('returns 10 for xp=226 (Lvl10 threshold)', () => {
+    expect(calculateLevel(226)).toBe(10);
   });
 
   it('returns 10 for xp=1000 (above max threshold)', () => {
     expect(calculateLevel(1000)).toBe(10);
   });
 
-  it('returns 5 for xp=56', () => {
-    expect(calculateLevel(56)).toBe(5);
+  it('returns 5 for xp=51', () => {
+    expect(calculateLevel(51)).toBe(5);
   });
 
-  it('returns 4 for xp=55 (just below Lvl5)', () => {
-    expect(calculateLevel(55)).toBe(4);
+  it('returns 4 for xp=50 (just below Lvl5)', () => {
+    expect(calculateLevel(50)).toBe(4);
+  });
+
+  it('returns 7 for xp=106 (Lvl7 unlocks medical requests)', () => {
+    expect(calculateLevel(106)).toBe(7);
   });
 });
 
@@ -128,16 +136,43 @@ describe('GamificationService', () => {
   });
 
   describe('recordAction - scan', () => {
-    it('awards 50 XP for scanning an existing cat', async () => {
-      prisma.ownership.findUnique.mockResolvedValue({ userId: 'u1', catId: 'c1', xp: 50, level: 1 });
+    it('awards 3 XP for scanning an existing cat (Req 6.2)', async () => {
+      prisma.ownership.findUnique.mockResolvedValue({ userId: 'u1', catId: 'c1', xp: 50, level: 4 });
 
       const result = await service.recordAction('u1', 'c1', 'scan');
 
-      expect(result.xpAwarded).toBe(50);
-      expect(prisma.user.update).toHaveBeenCalledWith({
-        where: { id: 'u1' },
-        data: { xp: { increment: 50 } },
+      expect(result.xpAwarded).toBe(3);
+    });
+
+    it('does not touch the global XP total for a scan (Req 6.2 — per-cat only)', async () => {
+      prisma.ownership.findUnique.mockResolvedValue({ userId: 'u1', catId: 'c1', xp: 50, level: 4 });
+
+      await service.recordAction('u1', 'c1', 'scan');
+
+      expect(prisma.user.update).not.toHaveBeenCalled();
+    });
+
+    it('records a scan XP entry for once-per-day tracking', async () => {
+      prisma.ownership.findUnique.mockResolvedValue({ userId: 'u1', catId: 'c1', xp: 50, level: 4 });
+
+      await service.recordAction('u1', 'c1', 'scan');
+
+      expect(prisma.scanXpLog.create).toHaveBeenCalledWith({
+        data: { userId: 'u1', catId: 'c1', xpAwarded: 3 },
       });
+    });
+
+    it('awards 0 XP when the cat was already scanned today (once per daily scan)', async () => {
+      prisma.scanXpLog.count.mockResolvedValue(1);
+      prisma.ownership.findUnique.mockResolvedValue({ userId: 'u1', catId: 'c1', xp: 53, level: 5 });
+
+      const result = await service.recordAction('u1', 'c1', 'scan');
+
+      expect(result.xpAwarded).toBe(0);
+      expect(result.newLevel).toBe(5);
+      expect(result.levelUp).toBe(false);
+      expect(prisma.ownership.update).not.toHaveBeenCalled();
+      expect(prisma.scanXpLog.create).not.toHaveBeenCalled();
     });
   });
 
@@ -148,10 +183,8 @@ describe('GamificationService', () => {
       const result = await service.recordAction('u1', 'c1', 'donation', 500); // 5 RM = 5 XP
 
       expect(result.xpAwarded).toBe(5);
-      expect(prisma.user.update).toHaveBeenCalledWith({
-        where: { id: 'u1' },
-        data: { xp: { increment: 5 } },
-      });
+      // Donations award per-cat XP only (Req 6.3) — global total untouched
+      expect(prisma.user.update).not.toHaveBeenCalled();
     });
 
     it('returns 0 XP when amountCents is missing', async () => {
@@ -209,17 +242,17 @@ describe('GamificationService', () => {
 
   describe('ownership level promotion', () => {
     it('promotes level when XP crosses threshold', async () => {
-      // Currently at 5 XP (Lvl1), adding 50 XP should promote to higher level
+      // Currently at 5 XP (Lvl1), adding 3 scan XP crosses the Lvl2 threshold (6)
       prisma.ownership.findUnique.mockResolvedValue({ userId: 'u1', catId: 'c1', xp: 5, level: 1 });
 
       const result = await service.recordAction('u1', 'c1', 'scan');
 
-      // 5 + 50 = 55 XP → Lvl4
-      expect(result.newLevel).toBe(4);
+      // 5 + 3 = 8 XP → Lvl2
+      expect(result.newLevel).toBe(2);
       expect(result.levelUp).toBe(true);
       expect(prisma.ownership.update).toHaveBeenCalledWith({
         where: { userId_catId: { userId: 'u1', catId: 'c1' } },
-        data: { xp: 55, level: 4 },
+        data: { xp: 8, level: 2 },
       });
     });
 
@@ -231,7 +264,7 @@ describe('GamificationService', () => {
       expect(alerts.notify).toHaveBeenCalledWith(
         'u1',
         'Level Up!',
-        expect.stringContaining('Level 4'),
+        expect.stringContaining('Level 2'),
         expect.objectContaining({ catId: 'c1' }),
       );
     });
@@ -248,17 +281,17 @@ describe('GamificationService', () => {
     it('creates Ownership at correct level when first created with XP > 0', async () => {
       prisma.ownership.findUnique.mockResolvedValue(null);
       prisma.userCatDiscovery.findUnique.mockResolvedValue({ userId: 'u1', catId: 'c1' });
-      prisma.ownership.create.mockResolvedValue({ userId: 'u1', catId: 'c1', xp: 50, level: 4 });
+      prisma.ownership.create.mockResolvedValue({ userId: 'u1', catId: 'c1', xp: 3, level: 1 });
 
       const result = await service.recordAction('u1', 'c1', 'scan');
 
       expect(prisma.ownership.create).toHaveBeenCalledWith({
         data: expect.objectContaining({
-          xp: 50,
-          level: 4, // calculateLevel(50) = 4
+          xp: 3,
+          level: 1, // calculateLevel(3) = 1 — first scan makes the user an Owner
         }),
       });
-      expect(result.levelUp).toBe(true); // new record at Lvl4 > 0
+      expect(result.levelUp).toBe(true); // new record at Lvl1 > 0
     });
   });
 

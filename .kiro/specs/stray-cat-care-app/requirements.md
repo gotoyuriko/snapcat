@@ -23,7 +23,7 @@ CodingKitty is a community-driven stray cat care app for Malaysia. Users discove
 - **XP**: Experience points accumulated by a User per cat or globally.
 - **Undiscovered User**: A User who has never scanned a particular Cat; can only see the Cat's silhouette and approximate area on the map or in Catpedia.
 - **Discovered User (Lvl0)**: A User who has scanned and registered a Cat in their Catpedia; can view the Cat's name, photo, description, sighting history, and a teaser of the owner community chat, but cannot send messages or access the full chat.
-- **Owner User (Lvl1+)**: A User whose cumulative per-cat XP has reached ownership threshold; has full access to the Cat's community chat, receives notifications, and can submit medical/grooming requests.
+- **Owner User (Lvl1+)**: A User whose cumulative per-cat XP has reached ownership threshold; has full access to the Cat's community chat and receives notifications. Medical/grooming request submission unlocks separately at Lvl7+ (see Requirements 8.3, 17.7).
 - **GPS_Fuzz**: A ±100–200 m random offset applied to raw GPS coordinates before storage or transmission to clients.
 - **Aikido**: Third-party security scanning service wrapping payment/donation API surfaces (optional — used only if free tier is available; otherwise replaced by `npm audit` + Trivy).
 - **YOLO**: Ultralytics YOLO model used for cat detection and crop.

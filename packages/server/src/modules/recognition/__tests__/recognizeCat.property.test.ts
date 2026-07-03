@@ -75,8 +75,20 @@ function makeMockPrisma() {
     },
     userCatDiscovery: {
       create: jest.fn().mockResolvedValue({}),
+      upsert: jest.fn().mockResolvedValue({}),
     },
   } as any;
+}
+
+function makeMockGamificationService() {
+  return {
+    recordAction: jest.fn().mockImplementation(
+      async (_userId: string, _catId: string, action: string) =>
+        action === 'discover_new'
+          ? { xpAwarded: 100, newLevel: 6, levelUp: true }
+          : { xpAwarded: 3, newLevel: 1, levelUp: false },
+    ),
+  };
 }
 
 // Mock the gps-fuzz module so it doesn't interfere with the property under test
@@ -127,6 +139,7 @@ describe('RecognitionService.recognizeCat - Property Tests', () => {
             mockMegaDescriptor as any,
             mockVector as any,
             mockPrisma,
+            makeMockGamificationService() as any,
           );
 
           const result = await service.recognizeCat(TEST_PHOTO, TEST_GPS, TEST_USER_ID);
