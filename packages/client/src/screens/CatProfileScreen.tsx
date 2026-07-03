@@ -132,7 +132,13 @@ function SightingItem({ sighting }: { sighting: Sighting }) {
   const date = new Date(sighting.timestamp);
   return (
     <View style={styles.sightingItem}>
-      <Image source={{ uri: sighting.photoUrl }} style={styles.sightingPhoto} />
+      <Image
+        source={{ uri: sighting.photoUrl }}
+        style={styles.sightingPhoto}
+        onError={(e) =>
+          console.warn('Failed to load sighting photo:', sighting.photoUrl, e.nativeEvent.error)
+        }
+      />
       <View style={styles.sightingInfo}>
         <Text style={styles.sightingDate}>
           {date.toLocaleDateString()} {date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
@@ -406,7 +412,13 @@ export function CatProfileScreen() {
       {/* Cat Photo & Name */}
       <View style={styles.headerSection}>
         {cat.photoUrl ? (
-          <Image source={{ uri: cat.photoUrl }} style={styles.catPhoto} />
+          <Image
+            source={{ uri: cat.photoUrl }}
+            style={styles.catPhoto}
+            onError={(e) =>
+              console.warn('Failed to load cat photo:', cat.photoUrl, e.nativeEvent.error)
+            }
+          />
         ) : (
           <View style={styles.catPhotoPlaceholder}>
             <Text style={styles.catPhotoPlaceholderText}>🐱</Text>
