@@ -1,7 +1,6 @@
 import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
-import { Request } from 'express';
 
 const UPLOADS_DIR = path.resolve(process.cwd(), 'uploads', 'cats');
 
@@ -41,12 +40,12 @@ export class PhotoStorageService {
   }
 
   /**
-   * Build a publicly-fetchable URL for a stored photo, using the incoming
-   * request's own host — so it resolves correctly whether the API is
-   * reached via localhost or a Cloudflare tunnel, without needing a static
-   * env var that would go stale each time the tunnel URL changes.
+   * Host-less path for a stored photo, persisted as-is in the database.
+   * Absolute URLs must not be stored: the tunnel hostname changes on every
+   * `npm run tunnel` restart, which strands previously saved URLs. The
+   * client prefixes its configured API host when rendering.
    */
-  buildUrl(req: Request, fileName: string): string {
-    return `${req.protocol}://${req.get('host')}/api/recognition/photos/${encodeURIComponent(fileName)}`;
+  buildUrl(fileName: string): string {
+    return `/api/recognition/photos/${encodeURIComponent(fileName)}`;
   }
 }

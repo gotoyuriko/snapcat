@@ -15,7 +15,7 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RouteProp } from '@react-navigation/native';
 import type { RootStackParamList } from '../navigation';
-import { api, ApiError } from '../services/api';
+import { api, ApiError, resolvePhotoUrl } from '../services/api';
 
 // --- Types ---
 
@@ -132,7 +132,7 @@ function SightingItem({ sighting }: { sighting: Sighting }) {
   const date = new Date(sighting.timestamp);
   return (
     <View style={styles.sightingItem}>
-      <Image source={{ uri: sighting.photoUrl }} style={styles.sightingPhoto} />
+      <Image source={{ uri: resolvePhotoUrl(sighting.photoUrl) }} style={styles.sightingPhoto} />
       <View style={styles.sightingInfo}>
         <Text style={styles.sightingDate}>
           {date.toLocaleDateString()} {date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
@@ -406,7 +406,7 @@ export function CatProfileScreen() {
       {/* Cat Photo & Name */}
       <View style={styles.headerSection}>
         {cat.photoUrl ? (
-          <Image source={{ uri: cat.photoUrl }} style={styles.catPhoto} />
+          <Image source={{ uri: resolvePhotoUrl(cat.photoUrl) }} style={styles.catPhoto} />
         ) : (
           <View style={styles.catPhotoPlaceholder}>
             <Text style={styles.catPhotoPlaceholderText}>🐱</Text>

@@ -12,7 +12,7 @@ import { CameraView, useCameraPermissions } from 'expo-camera';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation';
-import { api, ApiError } from '../services/api';
+import { api, ApiError, resolvePhotoUrl } from '../services/api';
 import { useLocation } from '../hooks/useLocation';
 
 /** Types matching the POST /scan response */
@@ -303,7 +303,7 @@ export function ScanScreen() {
           </View>
           <Text style={styles.successText}>Cat Matched!</Text>
           {scanState.cat.photoUrl && (
-            <Image source={{ uri: scanState.cat.photoUrl }} style={styles.catImage} />
+            <Image source={{ uri: resolvePhotoUrl(scanState.cat.photoUrl) }} style={styles.catImage} />
           )}
           <Text style={styles.catName}>{scanState.cat.name}</Text>
           <Text style={styles.xpText}>+{scanState.xpAwarded} XP</Text>
@@ -329,7 +329,7 @@ export function ScanScreen() {
           </View>
           <Text style={styles.successText}>New Cat Discovered!</Text>
           {scanState.cat.photoUrl && (
-            <Image source={{ uri: scanState.cat.photoUrl }} style={styles.catImage} />
+            <Image source={{ uri: resolvePhotoUrl(scanState.cat.photoUrl) }} style={styles.catImage} />
           )}
           <Text style={styles.catName}>{scanState.cat.name}</Text>
           <Text style={styles.xpText}>+{scanState.xpAwarded} XP</Text>
@@ -353,7 +353,7 @@ export function ScanScreen() {
             <View style={styles.modalContent}>
               {scanState.candidateCat.photoUrl && (
                 <Image
-                  source={{ uri: scanState.candidateCat.photoUrl }}
+                  source={{ uri: resolvePhotoUrl(scanState.candidateCat.photoUrl) }}
                   style={styles.catImage}
                 />
               )}

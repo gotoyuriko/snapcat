@@ -14,6 +14,24 @@ import {
 const API_HOST = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:3000';
 const BASE_URL = `${API_HOST}/api`;
 
+/**
+ * Resolve a stored photo URL against the current API host.
+ *
+ * Photo paths are persisted host-less (e.g. "/api/recognition/photos/x.jpg")
+ * because the tunnel hostname changes between sessions. Legacy rows may still
+ * carry an absolute URL with a stale tunnel host — those are re-pointed at
+ * the current host. Anything else (external URLs) passes through unchanged.
+ */
+export function resolvePhotoUrl(url: string): string;
+export function resolvePhotoUrl(url: string | null | undefined): string | null;
+export function resolvePhotoUrl(url: string | null | undefined): string | null {
+  if (!url) return null;
+  if (url.startsWith('/')) return `${API_HOST}${url}`;
+  const legacy = url.match(/^https?:\/\/[^/]+(\/api\/recognition\/photos\/.+)$/);
+  if (legacy) return `${API_HOST}${legacy[1]}`;
+  return url;
+}
+
 /** Error thrown for non-2xx responses; carries the status + raw body for callers. */
 export class ApiError extends Error {
   status: number;

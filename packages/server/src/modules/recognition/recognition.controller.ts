@@ -77,7 +77,7 @@ export class RecognitionController {
       const photo = req.file.buffer;
 
       const storedFileName = await this.photoStorageService.storePhoto(photo);
-      const photoUrl = this.photoStorageService.buildUrl(req, storedFileName);
+      const photoUrl = this.photoStorageService.buildUrl(storedFileName);
 
       const result = await this.recognitionService.recognizeCat(photo, userGPS, userId, photoUrl);
 

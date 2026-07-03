@@ -14,7 +14,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation';
-import { api } from '../services/api';
+import { api, resolvePhotoUrl } from '../services/api';
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
@@ -96,7 +96,7 @@ export function CatpediaScreen() {
           accessibilityRole="button"
         >
           {item.photoUrl ? (
-            <Image source={{ uri: item.photoUrl }} style={styles.catPhoto} />
+            <Image source={{ uri: resolvePhotoUrl(item.photoUrl) }} style={styles.catPhoto} />
           ) : (
             <View style={[styles.catPhoto, styles.placeholderPhoto]}>
               <Text style={styles.placeholderEmoji}>🐱</Text>
