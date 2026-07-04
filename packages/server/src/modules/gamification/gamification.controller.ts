@@ -42,6 +42,26 @@ export class GamificationController {
   }
 
   /**
+   * GET /gamification/badges
+   * Returns the authenticated user's earned badges for the profile showcase.
+   */
+  async getUserBadges(req: Request, res: Response): Promise<void> {
+    try {
+      const userId = req.user?.userId;
+      if (!userId) {
+        res.status(401).json({ error: 'Unauthorized' });
+        return;
+      }
+
+      const result = await this.gamificationService.getUserBadges(userId);
+      res.status(200).json(result);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Internal server error';
+      res.status(500).json({ error: message });
+    }
+  }
+
+  /**
    * GET /gamification/leaderboard
    * Returns the top users ranked by total XP.
    */

@@ -70,7 +70,20 @@ export class DocumentStorageService {
 
     // In dev, return a local URL with signed token
     const baseUrl = process.env.API_BASE_URL || 'http://localhost:3000';
-    return `${baseUrl}/api/medical/documents/${encodeURIComponent(fileName)}?expires=${expires}&sig=${signature}`;
+    return `${baseUrl}/api/medical-requests/documents/${encodeURIComponent(fileName)}?expires=${expires}&sig=${signature}`;
+  }
+
+  /**
+   * Absolute path to a stored document, or null if the name escapes the
+   * uploads directory or the file doesn't exist. `fileName` may contain a
+   * requestId subdirectory (e.g. "req-id/uuid.pdf").
+   */
+  resolveDocumentPath(fileName: string): string | null {
+    const filePath = path.resolve(this.uploadsDir, fileName);
+    if (!filePath.startsWith(this.uploadsDir + path.sep)) {
+      return null; // path traversal attempt
+    }
+    return fs.existsSync(filePath) ? filePath : null;
   }
 
   /**
@@ -89,9 +102,13 @@ export class DocumentStorageService {
       .update(payload)
       .digest('hex');
 
-    return crypto.timingSafeEqual(
-      Buffer.from(signature, 'hex'),
-      Buffer.from(expected, 'hex'),
-    );
+    try {
+      return crypto.timingSafeEqual(
+        Buffer.from(signature, 'hex'),
+        Buffer.from(expected, 'hex'),
+      );
+    } catch {
+      return false; // malformed signature (wrong length / non-hex)
+    }
   }
 }

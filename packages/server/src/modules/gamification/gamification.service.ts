@@ -359,6 +359,47 @@ export class GamificationService {
   }
 
   /**
+   * Earned badges for a user's profile showcase (Requirements 18.3–18.5).
+   * Badges are derived from existing data rather than stored:
+   * - Global badges from aggregate activity (discoveries, donations).
+   * - Per-cat level badges (Requirement 17): highest tier only per cat —
+   *   bronze at Lvl3, silver at Lvl5, gold at Lvl7, diamond at Lvl10.
+   */
+  async getUserBadges(userId: string) {
+    const [catsDiscovered, donationCount, ownerships] = await Promise.all([
+      this.prisma.userCatDiscovery.count({ where: { userId } }),
+      this.prisma.donation.count({
+        where: { donorId: userId, status: { in: ['escrowed', 'released'] } },
+      }),
+      this.prisma.ownership.findMany({
+        where: { userId, level: { gte: 3 } },
+        include: { cat: { select: { id: true, name: true, photoUrl: true } } },
+      }),
+    ]);
+
+    const globalBadges = GLOBAL_BADGE_DEFS.filter((def) =>
+      def.earned({ catsDiscovered, donationCount }),
+    ).map(({ id, title, icon }) => ({ id, title, icon, type: 'global' as const }));
+
+    const catBadges = ownerships.map((o) => {
+      const tier =
+        o.level >= 10 ? 'diamond' : o.level >= 7 ? 'gold' : o.level >= 5 ? 'silver' : 'bronze';
+      return {
+        id: `cat-${tier}-${o.catId}`,
+        title: `${o.cat.name ?? 'Unnamed cat'} — ${tier[0].toUpperCase()}${tier.slice(1)}`,
+        icon: 'ribbon',
+        type: 'per-cat' as const,
+        tier,
+        catId: o.cat.id,
+        catName: o.cat.name,
+        catPhotoUrl: o.cat.photoUrl,
+      };
+    });
+
+    return { badges: [...globalBadges, ...catBadges] };
+  }
+
+  /**
    * Global leaderboard — top users ranked by total XP.
    */
   async getLeaderboard(limit = 20) {
@@ -376,6 +417,20 @@ export class GamificationService {
     }));
   }
 }
+
+// Requirement 18.1 milestone badges. Earned-state is a pure function of
+// aggregate counts so no badge table or backfill is needed.
+const GLOBAL_BADGE_DEFS: ReadonlyArray<{
+  id: string;
+  title: string;
+  icon: string;
+  earned: (s: { catsDiscovered: number; donationCount: number }) => boolean;
+}> = [
+  { id: 'first-donation', title: 'First Donation', icon: 'heart', earned: (s) => s.donationCount >= 1 },
+  { id: 'donations-100', title: '100 Total Donations', icon: 'heart-circle', earned: (s) => s.donationCount >= 100 },
+  { id: 'discovered-10', title: 'Discovered 10 Cats', icon: 'paw', earned: (s) => s.catsDiscovered >= 10 },
+  { id: 'discovered-50', title: 'Discovered 50 Cats', icon: 'paw', earned: (s) => s.catsDiscovered >= 50 },
+];
 
 /** Returns the start of the current UTC day */
 function getUtcDayStart(): Date {

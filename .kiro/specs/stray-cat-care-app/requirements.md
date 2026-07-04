@@ -27,7 +27,7 @@ CodingKitty is a community-driven stray cat care app for Malaysia. Users discove
 - **GPS_Fuzz**: A ±100–200 m random offset applied to raw GPS coordinates before storage or transmission to clients.
 - **Aikido**: Third-party security scanning service wrapping payment/donation API surfaces (optional — used only if free tier is available; otherwise replaced by `npm audit` + Trivy).
 - **YOLO**: Ultralytics YOLO model used for cat detection and crop.
-- **MegaDescriptor**: Pre-trained wildlife re-identification model (HuggingFace) producing a 512-dim embedding.
+- **MegaDescriptor**: Pre-trained wildlife re-identification model (HuggingFace, MegaDescriptor-T-224) producing a 768-dim embedding.
 - **pgvector**: PostgreSQL extension for storing and querying cat embedding vectors.
 - **WebAR**: Browser-based augmented reality experience loaded inside a React Native WebView.
 - **Inactivity Period**: 8 consecutive months without any donation or daily scan for a specific Cat, triggering ownership revocation.
@@ -85,12 +85,12 @@ CodingKitty is a community-driven stray cat care app for Malaysia. Users discove
 
 #### Acceptance Criteria
 
-1. WHEN a cropped cat image passes YOLO detection, THE System SHALL pass it to MegaDescriptor to generate a 512-dimensional embedding.
+1. WHEN a cropped cat image passes YOLO detection, THE System SHALL pass it to MegaDescriptor to generate a 768-dimensional embedding.
 2. WHEN an embedding is generated, THE System SHALL query pgvector for the nearest existing Cat embedding using cosine similarity.
-3. WHEN a User who has NOT discovered the matched Cat scans it AND the nearest-neighbour similarity score is ≥ 0.92, THE System SHALL auto-confirm the match and register the discovery without requiring a user confirmation prompt.
-4. WHEN a User who IS an Owner (Lvl1+) of the matched Cat scans it AND the nearest-neighbour similarity score is ≥ 0.72, THE System SHALL present the candidate Cat to the User with a confirmation prompt ("Is this <Cat>?") and SHALL await the User's response before proceeding.
-5. WHEN a User who has discovered (Lvl0) but does not own the matched Cat scans it AND the nearest-neighbour similarity score is ≥ 0.92, THE System SHALL auto-confirm the match without requiring a user confirmation prompt.
-6. WHEN the nearest-neighbour similarity score is < 0.72 OR no embeddings exist in the database, THE System SHALL register a new Cat record with the embedding and the current User as firstDiscoverer.
+3. WHEN a User who has NOT discovered the matched Cat scans it AND the nearest-neighbour similarity score is ≥ the auto-match threshold (configurable, default 0.85), THE System SHALL auto-confirm the match and register the discovery without requiring a user confirmation prompt.
+4. WHEN a User who IS an Owner (Lvl1+) of the matched Cat scans it AND the nearest-neighbour similarity score is ≥ the confirm threshold (configurable, default 0.5), THE System SHALL present the candidate Cat to the User with a confirmation prompt ("Is this <Cat>?") and SHALL await the User's response before proceeding.
+5. WHEN a User who has discovered (Lvl0) but does not own the matched Cat scans it AND the nearest-neighbour similarity score is ≥ the auto-match threshold (configurable, default 0.85), THE System SHALL auto-confirm the match without requiring a user confirmation prompt.
+6. WHEN the nearest-neighbour similarity score is < the confirm threshold (configurable, default 0.5) OR no embeddings exist in the database, THE System SHALL register a new Cat record with the embedding and the current User as firstDiscoverer.
 7. WHEN a User confirms a match via prompt, THE System SHALL treat the interaction as a confirmed match for all subsequent steps.
 8. WHEN a User rejects a match via prompt, THE System SHALL register a new Cat as in criterion 6.
 9. WHEN a scan results in a confirmed or auto-confirmed match, THE System SHALL offer the User the option to upload the scanned photo to the Cat's community chat (accessible only if the User is Lvl1+ Owner).

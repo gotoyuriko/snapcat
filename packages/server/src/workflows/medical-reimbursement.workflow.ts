@@ -26,7 +26,6 @@ import type * as activities from './activities/medical-reimbursement.activities'
 
 // Proxy activities with retry policy
 const {
-  verifyRequest,
   notifyPartner,
   updateMedicalRequestStatus,
   verifyInvoice,
@@ -46,6 +45,14 @@ export type WorkflowStatus =
   | 'rejected'
   | 'timed_out'
   | 'reimbursed';
+
+/** Signal: staff has reviewed the request (Req 9.5–9.7). */
+export interface StaffDecision {
+  approved: boolean;
+  partnerId?: string;
+  appointmentDetails?: string;
+}
+export const staffDecisionSignal = defineSignal<[StaffDecision]>('staffDecision');
 
 /** Signal: partner has accepted the medical request */
 export const partnerAcceptedSignal = defineSignal('partnerAccepted');
@@ -73,6 +80,8 @@ export async function medicalReimbursementWorkflow(
   catId: string,
 ): Promise<WorkflowStatus> {
   // --- Workflow state (signals set these) ---
+  let staffDecided = false;
+  let staffDecision: StaffDecision = { approved: false };
   let partnerAccepted = false;
   let serviceCompleted = false;
   let invoiceUrl = '';
@@ -80,6 +89,11 @@ export async function medicalReimbursementWorkflow(
   let documentsResubmitted = false;
 
   // --- Register signal handlers ---
+  setHandler(staffDecisionSignal, (decision: StaffDecision) => {
+    staffDecided = true;
+    staffDecision = decision;
+  });
+
   setHandler(partnerAcceptedSignal, () => {
     partnerAccepted = true;
   });
@@ -94,10 +108,12 @@ export async function medicalReimbursementWorkflow(
     resubmittedInvoiceUrl = url;
   });
 
-  // --- Step 1: Staff Verification ---
-  const verificationResult = await verifyRequest(requestId);
+  // --- Step 1: Staff Verification (Req 9.5) ---
+  // Wait for the review team's decision signal (POST /:id/approve|reject).
+  // The request stays 'pending' until staff act — never auto-rejected.
+  await condition(() => staffDecided);
 
-  if (!verificationResult.approved) {
+  if (!staffDecision.approved) {
     // Rejected by staff
     await updateMedicalRequestStatus(requestId, 'rejected');
     await notifyUser(requesterId, 'Your medical request has been rejected by staff verification.');
@@ -105,11 +121,17 @@ export async function medicalReimbursementWorkflow(
   }
 
   // Approved — update status to verified
-  await updateMedicalRequestStatus(requestId, 'verified', verificationResult.partnerId);
+  await updateMedicalRequestStatus(requestId, 'verified', staffDecision.partnerId);
 
-  // --- Step 2: Notify partner ---
-  if (verificationResult.partnerId) {
-    await notifyPartner(verificationResult.partnerId, requestId);
+  // --- Step 2: Confirm to requester and partner (Req 9.6) ---
+  await notifyUser(
+    requesterId,
+    `Your medical request has been approved.${
+      staffDecision.appointmentDetails ? ` Appointment: ${staffDecision.appointmentDetails}` : ''
+    }`,
+  );
+  if (staffDecision.partnerId) {
+    await notifyPartner(staffDecision.partnerId, requestId);
   }
 
   // --- Step 3: Wait for partner acceptance signal ---

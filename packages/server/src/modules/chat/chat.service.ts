@@ -7,6 +7,7 @@ export interface ChatMessageRecord {
   catId: string;
   senderId: string;
   content: string;
+  photoUrl: string | null;
   createdAt: Date;
 }
 
@@ -29,7 +30,12 @@ export class ChatService {
    * Verifies ownership level >= 1 before persisting.
    * Requirement 8.3: persist first, then caller broadcasts.
    */
-  async sendMessage(catId: string, senderId: string, content: string): Promise<ChatMessageRecord> {
+  async sendMessage(
+    catId: string,
+    senderId: string,
+    content: string,
+    photoUrl?: string,
+  ): Promise<ChatMessageRecord> {
     const isOwner = await this.isLvl1Owner(senderId, catId);
     if (!isOwner) {
       throw new ForbiddenError('User is not a Lvl1+ owner of this cat');
@@ -40,6 +46,7 @@ export class ChatService {
         catId,
         senderId,
         content,
+        photoUrl: photoUrl ?? null,
       },
     });
 

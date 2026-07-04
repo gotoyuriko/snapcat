@@ -224,6 +224,52 @@ Implement the CodingKitty modular monolith (Node.js/TypeScript backend + React N
     - On WebView load failure → show fallback donation confirmation screen.
     - _Requirements: 11.1, 11.2, 11.3_
 
+- [x] 16.7 Implement badge display on profiles:
+    - `GET /gamification/badges` endpoint: derives earned badges from existing data (no badge table).
+    - Global milestone badges (First Donation, 100 Total Donations, Discovered 10/50 Cats).
+    - Per-cat level badges (bronze Lvl3, silver Lvl5, gold Lvl7, diamond Lvl10) — highest tier per cat, featuring the cat's photo.
+    - Badge showcase section on the Profile screen, always visible (empty state prompt when no badges).
+    - _Requirements: 17.3, 17.5, 17.7, 17.10, 18.3, 18.4, 18.5_
+
+- [x] 16.8 Profile menu essentials:
+    - Remove the stray "Log out" button from the Map (main) screen; logout lives on the Profile screen only.
+    - `PATCH /auth/me` endpoint to update display name (zod-validated, auth-gated).
+    - Profile menu: Edit Profile (display name modal), My Rewards (level-reward inventory per Requirement 17.11), Donation History.
+    - _Requirements: 17.11_
+
+- [x] 16.9 Requirement 4 gaps — owner confirm prompt & share-to-chat:
+    - Lvl1+ owners of the matched cat are routed to the "Is this <Cat>?" confirmation even above the auto-match threshold (Req 4.4).
+    - After a confirmed match, Lvl1+ owners can share the scan photo to the cat's community chat (Req 4.9): ChatMessage.photoUrl column (migration), photo-capable chat send API, share button on the matched scan screen, photo rendering in chat.
+    - requirements.md reconciled with shipped values: 768-dim MegaDescriptor-T embeddings; configurable thresholds (defaults 0.85 auto-match / 0.5 confirm).
+    - _Requirements: 4.1, 4.3, 4.4, 4.5, 4.6, 4.9_
+
+- [x] 16.10 Requirement 5.7 — cat location moves only on scan sightings:
+    - `appendSighting` updates lastKnownApproxLocation only for type 'scan'; manual reports are recorded without moving the cat.
+    - `POST /sightings` no longer accepts a client-supplied type (previously defaulted to 'scan', letting manual reports spoof scan sightings); REST reports are always 'manual'. Scan sightings come exclusively from the recognition pipeline.
+    - Property test added for the scan-only location-update rule.
+    - Known deviation (Req 5.4): a failed GPS fuzz stores sentinel (0,0) instead of null — fuzzedLat/Lng are non-nullable columns; near-impossible in practice, revisit if it ever matters.
+    - _Requirements: 5.7_
+
+- [x] 16.11 Requirement 7.5 — Nearby Cats search in Catpedia:
+    - "Nearby" filter tab: reveals silhouettes of undiscovered cats within 100 m of the user's current GPS location (haversine on the cat's last known fuzzed scan location), filtered client-side from the 'all' response.
+    - Empty states for no GPS fix and no cats in range.
+    - _Requirements: 7.5_
+
+- [x] 16.12 Requirement 8 fixes — real-time parity for REST chat sends:
+    - REST-persisted chat messages (e.g. scan-photo shares) now broadcast to the cat's socket room via `broadcastChatMessage`, so online owners see them without reloading (Req 8.3 parity).
+    - Socket `send_message` accepts an optional validated `photoUrl` (same own-photo-route restriction as REST).
+    - Remaining gap (Req 8.5, partial): no general in-chat image picker/upload — only scanned photos can be shared; would need expo-image-picker + a chat upload endpoint.
+    - _Requirements: 8.3, 8.5_
+
+- [x] 16.13 Requirement 9 completion — medical request lifecycle:
+    - Workflow no longer auto-rejects pending requests: staff review is a Temporal signal (`staffDecision`); request stays 'pending' until staff act. On approval the requester gets a confirmation (with appointment details) and the partner is notified (Req 9.5, 9.6).
+    - New endpoints: POST /:id/approve and /:id/reject (staffGuard; approve validates the partner is certified), /:id/partner-accept (staff-entered), /:id/complete (multipart 'invoice' + 'receipt', BOTH required per Req 9.8; ?resubmission=true drives rejected → reimbursed).
+    - MedicalRequest.reason column (migration) + create now requires a reason (min 10 chars) and ≥1 supporting document (Req 9.4).
+    - GET /documents/:fileName serves signed private documents (HMAC + expiry + path-traversal guard) — signed URLs previously 404'd (Req 9.12).
+    - Create response includes certified partner list (Req 9.13).
+    - Note: partner-accept/complete use staff/requester auth — partners have no login; client UI for the medical flow remains unimplemented (button navigates nowhere).
+    - _Requirements: 9.4, 9.5, 9.6, 9.7, 9.8, 9.12, 9.13_
+
 - [x] 17. Checkpoint — Client screens integrated
   - Ensure all screens render correctly with the running backend. Run the full E2E happy path: onboard → scan → discover cat → donate food → verify XP update → check Catpedia filter.
   - Ask the user if questions arise.

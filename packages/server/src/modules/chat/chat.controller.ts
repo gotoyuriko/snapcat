@@ -1,9 +1,17 @@
 import { Request, Response } from 'express';
 import { z } from 'zod';
 import { ChatService, ForbiddenError } from './chat.service';
+import { broadcastChatMessage } from './chat.gateway';
 
 const sendMessageSchema = z.object({
   content: z.string().min(1).max(2000),
+  // Optional photo attachment: host-less path under our own photo route only,
+  // so arbitrary external URLs can't be injected into chat.
+  photoUrl: z
+    .string()
+    .max(500)
+    .regex(/^\/api\/recognition\/photos\//)
+    .optional(),
 });
 
 const getMessagesQuerySchema = z.object({
@@ -51,8 +59,12 @@ export class ChatController {
         return;
       }
 
-      const { content } = parseResult.data;
-      const message = await this.chatService.sendMessage(catId, userId, content);
+      const { content, photoUrl } = parseResult.data;
+      const message = await this.chatService.sendMessage(catId, userId, content, photoUrl);
+
+      // Persisted — now let online room members see it in real time (Req 8.3),
+      // matching the socket send path.
+      broadcastChatMessage(catId, message);
 
       res.status(201).json(message);
     } catch (err) {

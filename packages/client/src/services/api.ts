@@ -137,9 +137,13 @@ async function apiFetch<T>(
     },
   });
 
-  // Access token likely expired — refresh once and retry. Skip for /auth/* (login,
-  // refresh) so a bad-credentials 401 doesn't trigger a refresh loop.
-  if (response.status === 401 && token && !retried && !path.startsWith('/auth/')) {
+  // Access token likely expired — refresh once and retry. Skip for the auth
+  // flows themselves (login, refresh, register, logout) so a bad-credentials
+  // 401 doesn't trigger a refresh loop; token-protected /auth/me still refreshes.
+  const isAuthFlow = ['/auth/login', '/auth/refresh', '/auth/register', '/auth/logout'].some(
+    (p) => path.startsWith(p),
+  );
+  if (response.status === 401 && token && !retried && !isAuthFlow) {
     if (await refreshAccessToken()) {
       return apiFetch<T>(path, options, isForm, true);
     }

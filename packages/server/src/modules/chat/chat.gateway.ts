@@ -9,6 +9,17 @@ interface SocketUser {
 }
 
 /**
+ * Broadcast a chat message to a cat's room. Set by ChatGateway.initialize();
+ * lets the REST send path (chat.controller) reach online room members so
+ * REST-persisted messages (e.g. scan-photo shares) appear in real time.
+ */
+let broadcastFn: ((catId: string, message: unknown) => void) | null = null;
+
+export function broadcastChatMessage(catId: string, message: unknown): void {
+  broadcastFn?.(catId, message);
+}
+
+/**
  * Chat Gateway — Socket.io handler for real-time cat community chat.
  * Task 9.1: WebSocket channel per cat, gated by Lvl1+ ownership check.
  *
@@ -26,6 +37,10 @@ export class ChatGateway {
 
   /** Initialize Socket.io event handlers */
   initialize(): void {
+    broadcastFn = (catId, message) => {
+      this.io.to(`cat:${catId}`).emit('new_message', message);
+    };
+
     // Authenticate on connection using JWT from handshake
     this.io.use((socket, next) => {
       const token =
@@ -77,13 +92,24 @@ export class ChatGateway {
         socket.emit('left_room', { catId, room });
       });
 
-      socket.on('send_message', async (data: { catId: string; content: string }) => {
+      socket.on(
+        'send_message',
+        async (data: { catId: string; content: string; photoUrl?: string }) => {
         try {
+          // Only our own photo route may be attached (mirrors the REST schema)
+          const photoUrl =
+            typeof data.photoUrl === 'string' &&
+            /^\/api\/recognition\/photos\//.test(data.photoUrl) &&
+            data.photoUrl.length <= 500
+              ? data.photoUrl
+              : undefined;
+
           // Req 8.3: persist FIRST via ChatService (which also checks ownership)
           const message = await this.chatService.sendMessage(
             data.catId,
             user.userId,
             data.content,
+            photoUrl,
           );
 
           // Only after successful persistence, broadcast to room

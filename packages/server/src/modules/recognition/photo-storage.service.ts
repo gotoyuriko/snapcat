@@ -31,6 +31,17 @@ export class PhotoStorageService {
     return fileName;
   }
 
+  /** Delete a stored photo. Best-effort: a missing file is not an error. */
+  async deletePhoto(fileName: string): Promise<void> {
+    const filePath = this.resolvePhotoPath(fileName);
+    if (!filePath) return;
+    try {
+      await fs.promises.unlink(filePath);
+    } catch {
+      // Cleanup is best-effort; an orphaned file must never fail the request.
+    }
+  }
+
   /** Absolute path to a stored photo, or null if the file name is invalid/missing. */
   resolvePhotoPath(fileName: string): string | null {
     // path.basename strips any directory components, preventing path traversal.

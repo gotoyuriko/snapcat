@@ -35,6 +35,7 @@ function createMockPrisma(ownershipLevel: number | null) {
           catId: data.catId,
           senderId: data.senderId,
           content: data.content,
+          photoUrl: data.photoUrl ?? null,
           createdAt: new Date(),
         };
         mockMessages.push(record);

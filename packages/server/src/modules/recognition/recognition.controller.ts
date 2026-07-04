@@ -49,6 +49,7 @@ export class RecognitionController {
    * Expects multipart/form-data with a 'photo' file field and 'userGPS' JSON field.
    */
   async scan(req: Request, res: Response): Promise<void> {
+    let storedFileName: string | undefined;
     try {
       // Validate file upload
       if (!req.file) {
@@ -76,13 +77,16 @@ export class RecognitionController {
       const userId = req.user!.userId;
       const photo = req.file.buffer;
 
-      const storedFileName = await this.photoStorageService.storePhoto(photo);
+      storedFileName = await this.photoStorageService.storePhoto(photo);
       const photoUrl = this.photoStorageService.buildUrl(storedFileName);
 
       const result = await this.recognitionService.recognizeCat(photo, userGPS, userId, photoUrl);
 
       // Map result to appropriate HTTP status
       if (result.result === 'no_cat') {
+        // The photo was stored before detection ran; a failed scan never
+        // references it, so remove it rather than orphaning it on disk.
+        await this.photoStorageService.deletePhoto(storedFileName);
         res.status(422).json({ result: 'no_cat', message: 'No cat detected — please retake' });
         return;
       }
@@ -95,6 +99,12 @@ export class RecognitionController {
       // 'matched' or 'confirm_needed'
       res.status(200).json(result);
     } catch (err: any) {
+      // A scan that failed mid-pipeline never persisted a reference to the
+      // photo either — clean it up. ('confirm_needed' keeps the file: its
+      // photoUrl is echoed back via POST /scan/confirm.)
+      if (storedFileName) {
+        await this.photoStorageService.deletePhoto(storedFileName);
+      }
       this.handleServiceError(err, res);
     }
   }

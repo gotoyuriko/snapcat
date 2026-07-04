@@ -77,6 +77,10 @@ function makeMockPrisma() {
       create: jest.fn().mockResolvedValue({}),
       upsert: jest.fn().mockResolvedValue({}),
     },
+    // Non-owner scanner: high-similarity matches auto-confirm (Req 4.3/4.5)
+    ownership: {
+      findUnique: jest.fn().mockResolvedValue(null),
+    },
   } as any;
 }
 

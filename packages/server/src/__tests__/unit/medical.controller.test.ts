@@ -4,15 +4,27 @@ import { MedicalController } from '../../modules/medical/medical.controller';
 // Mock MedicalService
 jest.mock('../../modules/medical/medical.service', () => {
   const mockCreateRequest = jest.fn();
+  const mockGetCertifiedPartners = jest.fn();
   return {
     MedicalService: jest.fn().mockImplementation(() => ({
       createRequest: mockCreateRequest,
+      getCertifiedPartners: mockGetCertifiedPartners,
     })),
+    MedicalRequestNotFoundError: class MedicalRequestNotFoundError extends Error {},
     __mockCreateRequest: mockCreateRequest,
+    __mockGetCertifiedPartners: mockGetCertifiedPartners,
   };
 });
 
-const { __mockCreateRequest: mockCreateRequest } = jest.requireMock('../../modules/medical/medical.service');
+const {
+  __mockCreateRequest: mockCreateRequest,
+  __mockGetCertifiedPartners: mockGetCertifiedPartners,
+} = jest.requireMock('../../modules/medical/medical.service');
+
+const VALID_REASON = 'The cat has a visibly injured left hind leg.';
+const MOCK_FILES = [
+  { buffer: Buffer.from('pdf-content'), originalname: 'vet-note.pdf' },
+] as Express.Multer.File[];
 
 function createMockReq(overrides: Partial<Request> = {}): Partial<Request> {
   return {
@@ -35,12 +47,13 @@ describe('MedicalController', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    mockGetCertifiedPartners.mockResolvedValue([]);
     controller = new MedicalController();
   });
 
   describe('create', () => {
     it('returns 400 if catId is missing', async () => {
-      const req = createMockReq({ body: { type: 'medical' } });
+      const req = createMockReq({ body: { type: 'medical', reason: VALID_REASON }, files: MOCK_FILES });
       const res = createMockRes();
 
       await controller.create(req as Request, res as Response);
@@ -51,7 +64,8 @@ describe('MedicalController', () => {
 
     it('returns 400 if type is invalid', async () => {
       const req = createMockReq({
-        body: { catId: '550e8400-e29b-41d4-a716-446655440000', type: 'invalid' },
+        body: { catId: '550e8400-e29b-41d4-a716-446655440000', type: 'invalid', reason: VALID_REASON },
+        files: MOCK_FILES,
       });
       const res = createMockRes();
 
@@ -63,7 +77,8 @@ describe('MedicalController', () => {
 
     it('returns 400 if catId is not a valid UUID', async () => {
       const req = createMockReq({
-        body: { catId: 'not-a-uuid', type: 'medical' },
+        body: { catId: 'not-a-uuid', type: 'medical', reason: VALID_REASON },
+        files: MOCK_FILES,
       });
       const res = createMockRes();
 
@@ -88,20 +103,47 @@ describe('MedicalController', () => {
       mockCreateRequest.mockResolvedValue(mockResult);
 
       const req = createMockReq({
-        body: { catId: '550e8400-e29b-41d4-a716-446655440000', type: 'medical' },
+        body: { catId: '550e8400-e29b-41d4-a716-446655440000', type: 'medical', reason: VALID_REASON },
+        files: MOCK_FILES,
       });
       const res = createMockRes();
 
       await controller.create(req as Request, res as Response);
 
       expect(res.statusCode).toBe(201);
-      expect(res.body).toEqual(mockResult);
+      expect(res.body).toEqual({ ...mockResult, certifiedPartners: [] });
       expect(mockCreateRequest).toHaveBeenCalledWith({
         catId: '550e8400-e29b-41d4-a716-446655440000',
         requesterId: 'user-1',
         type: 'medical',
-        documents: undefined,
+        reason: VALID_REASON,
+        documents: [{ buffer: Buffer.from('pdf-content'), originalName: 'vet-note.pdf' }],
       });
+    });
+
+    it('returns 400 when no supporting documents are attached (Requirement 9.4)', async () => {
+      const req = createMockReq({
+        body: { catId: '550e8400-e29b-41d4-a716-446655440000', type: 'medical', reason: VALID_REASON },
+      });
+      const res = createMockRes();
+
+      await controller.create(req as Request, res as Response);
+
+      expect(res.statusCode).toBe(400);
+      expect(mockCreateRequest).not.toHaveBeenCalled();
+    });
+
+    it('returns 400 when reason is missing (Requirement 9.4)', async () => {
+      const req = createMockReq({
+        body: { catId: '550e8400-e29b-41d4-a716-446655440000', type: 'medical' },
+        files: MOCK_FILES,
+      });
+      const res = createMockRes();
+
+      await controller.create(req as Request, res as Response);
+
+      expect(res.statusCode).toBe(400);
+      expect(mockCreateRequest).not.toHaveBeenCalled();
     });
 
     it('returns 201 with documents when files are uploaded (Requirement 9.9)', async () => {
@@ -123,7 +165,7 @@ describe('MedicalController', () => {
       ] as Express.Multer.File[];
 
       const req = createMockReq({
-        body: { catId: '550e8400-e29b-41d4-a716-446655440000', type: 'grooming' },
+        body: { catId: '550e8400-e29b-41d4-a716-446655440000', type: 'grooming', reason: VALID_REASON },
         files: mockFiles,
       });
       const res = createMockRes();
@@ -135,6 +177,7 @@ describe('MedicalController', () => {
         catId: '550e8400-e29b-41d4-a716-446655440000',
         requesterId: 'user-1',
         type: 'grooming',
+        reason: VALID_REASON,
         documents: [{ buffer: Buffer.from('pdf-content'), originalName: 'receipt.pdf' }],
       });
     });
@@ -143,7 +186,8 @@ describe('MedicalController', () => {
       mockCreateRequest.mockRejectedValue(new Error('DB error'));
 
       const req = createMockReq({
-        body: { catId: '550e8400-e29b-41d4-a716-446655440000', type: 'medical' },
+        body: { catId: '550e8400-e29b-41d4-a716-446655440000', type: 'medical', reason: VALID_REASON },
+        files: MOCK_FILES,
       });
       const res = createMockRes();
 

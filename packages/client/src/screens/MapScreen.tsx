@@ -11,11 +11,10 @@ import {
 import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation';
 import { useLocation } from '../hooks/useLocation';
-import { useAuth } from '../hooks/useAuth';
 import { api } from '../services/api';
 
 /** Shape returned by GET /map */
@@ -49,13 +48,15 @@ function distanceMeters(
 }
 
 const REFETCH_DISTANCE_THRESHOLD = 200; // meters
+// Requirement 2.6: pin positions should reflect new sightings within 60s.
+// Poll well inside that window while the map is focused.
+const PIN_POLL_INTERVAL_MS = 30_000;
 const RECENTER_ANIMATION_MS = 500;
 const LOCATING_TIMEOUT_MS = 1500;
 
 export function MapScreen() {
   const navigation = useNavigation<NavigationProp>();
   const insets = useSafeAreaInsets();
-  const logout = useAuth((s) => s.logout);
   const {
     latitude,
     longitude,
@@ -128,22 +129,32 @@ export function MapScreen() {
     }
   }, [latitude, longitude, refreshLocation]);
 
-  const fetchPins = useCallback(async () => {
-    setLoadingPins(true);
+  // Background polls pass silent=true so the loading badge doesn't flash
+  // every 30 seconds; it only shows for user-visible loads.
+  const fetchPins = useCallback(async (silent = false) => {
+    if (!silent) setLoadingPins(true);
     try {
       const data = await api.get<MapPin[]>('/map');
       setPins(data);
     } catch {
       // Silently handle — pins just won't update
     } finally {
-      setLoadingPins(false);
+      if (!silent) setLoadingPins(false);
     }
   }, []);
 
-  // Fetch on initial load
-  useEffect(() => {
-    fetchPins();
-  }, [fetchPins]);
+  // Fetch on focus (covers initial load and returning from Scan/CatProfile,
+  // where a new sighting may just have moved a pin), then poll every 30s while
+  // the map stays focused so new sightings appear within the 60s target
+  // (Requirement 2.6). The interval is torn down on blur to avoid background
+  // requests.
+  useFocusEffect(
+    useCallback(() => {
+      fetchPins();
+      const interval = setInterval(() => fetchPins(true), PIN_POLL_INTERVAL_MS);
+      return () => clearInterval(interval);
+    }, [fetchPins]),
+  );
 
   // Refetch when GPS changes significantly (>200m from last fetch position)
   useEffect(() => {
@@ -236,16 +247,6 @@ export function MapScreen() {
         </View>
       )}
 
-      {/* Logout button */}
-      <TouchableOpacity
-        style={[styles.logoutBtn, { top: insets.top + 8 }]}
-        onPress={logout}
-        accessibilityLabel="Log out"
-        accessibilityRole="button"
-      >
-        <Text style={styles.logoutText}>Log out</Text>
-      </TouchableOpacity>
-
       {/* Profile button */}
       <TouchableOpacity
         style={[styles.profileBtn, { top: insets.top + 8 }]}
@@ -337,25 +338,6 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.2,
     shadowRadius: 3,
-  },
-  logoutBtn: {
-    position: 'absolute',
-    top: 48,
-    left: 16,
-    backgroundColor: '#fff',
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 20,
-    elevation: 4,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 3,
-  },
-  logoutText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#e53935',
   },
   profileBtn: {
     position: 'absolute',

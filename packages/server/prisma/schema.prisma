@@ -165,6 +165,8 @@ model MedicalRequest {
   catId       String
   requesterId String
   type        String   @default("medical") // 'medical' | 'grooming'
+  // Requirement 9.4: requester must explain why care is needed.
+  reason      String   @default("")
   status      String   @default("pending") // 'pending' | 'verified' | 'in_progress' | 'reimbursed' | 'rejected'
   partnerId   String?
   workflowId  String   @default("")
@@ -182,6 +184,9 @@ model ChatMessage {
   catId     String
   senderId  String
   content   String
+  // Optional photo attachment (host-less /api/recognition/photos/... path) —
+  // used by "share scan photo to chat" (Requirement 4.9).
+  photoUrl  String?
   createdAt DateTime @default(now())
 
   // Relations

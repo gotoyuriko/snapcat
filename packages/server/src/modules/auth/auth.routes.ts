@@ -13,3 +13,5 @@ authRoutes.post('/logout', (req, res) => controller.logout(req, res));
 authRoutes.get('/me', authMiddleware, (req, res) => {
   res.json({ userId: req.user!.userId, email: req.user!.email });
 });
+// PATCH /auth/me — update editable profile fields (display name).
+authRoutes.patch('/me', authMiddleware, (req, res) => controller.updateProfile(req, res));

@@ -2,12 +2,14 @@ import { Request, Response } from 'express';
 import { z } from 'zod';
 import { SightingService } from './sighting.service';
 
+// Req 5.7: REST-reported sightings are always 'manual'. Scan sightings are
+// created exclusively by the recognition pipeline, so clients cannot claim
+// the 'scan' type (which would let them move a cat's map location).
 const reportSightingSchema = z.object({
   catId: z.string().uuid(),
   lat: z.number().min(-90).max(90),
   lng: z.number().min(-180).max(180),
   photoUrl: z.string().default(''),
-  type: z.enum(['scan', 'manual']).default('scan'),
 });
 
 export class SightingController {
@@ -25,7 +27,7 @@ export class SightingController {
     }
 
     try {
-      const { catId, lat, lng, photoUrl, type } = parsed.data;
+      const { catId, lat, lng, photoUrl } = parsed.data;
       const reporterId = req.user!.userId;
 
       const sighting = await this.sightingService.appendSighting(
@@ -33,7 +35,7 @@ export class SightingController {
         reporterId,
         { lat, lng },
         photoUrl,
-        type,
+        'manual',
       );
 
       res.status(201).json(sighting);

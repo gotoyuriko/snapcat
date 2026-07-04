@@ -37,6 +37,13 @@ export interface OrchestrationMatched {
   cat: Cat;
   xpAwarded: number;
   levelUp: boolean;
+  /** Host-less URL of the photo the user just scanned, if stored. */
+  scanPhotoUrl?: string;
+  /**
+   * Whether the scanner may share the scan photo to the cat's community chat
+   * (Requirement 4.9 — Lvl1+ owners only). Absent means not allowed.
+   */
+  canShareToChat?: boolean;
 }
 
 /** Borderline similarity — user must confirm the match */

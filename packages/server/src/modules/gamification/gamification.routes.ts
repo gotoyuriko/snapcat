@@ -13,3 +13,8 @@ gamificationRoutes.get('/leaderboard', authMiddleware, (req, res) =>
 
 // GET /gamification/stats — authenticated user's XP, rank, and level for their profile.
 gamificationRoutes.get('/stats', authMiddleware, (req, res) => controller.getUserStats(req, res));
+
+// GET /gamification/badges — authenticated user's earned badges (profile showcase).
+gamificationRoutes.get('/badges', authMiddleware, (req, res) =>
+  controller.getUserBadges(req, res),
+);

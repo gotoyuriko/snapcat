@@ -27,22 +27,36 @@ interface UserGPS {
   lng: number;
 }
 
+interface MatchedResult {
+  result: 'matched';
+  cat: Cat;
+  xpAwarded: number;
+  levelUp: boolean;
+  scanPhotoUrl?: string;
+  canShareToChat?: boolean;
+}
+
 type RecognitionResult =
   | { result: 'no_cat' }
-  | { result: 'matched'; cat: Cat; xpAwarded: number; levelUp: boolean }
+  | MatchedResult
   | { result: 'confirm_needed'; candidateCat: Cat; embedding: number[]; photoUrl: string }
   | { result: 'new_cat'; cat: Cat; xpAwarded: number };
 
-type ConfirmResult =
-  | { result: 'matched'; cat: Cat; xpAwarded: number; levelUp: boolean }
-  | { result: 'new_cat'; cat: Cat; xpAwarded: number };
+type ConfirmResult = MatchedResult | { result: 'new_cat'; cat: Cat; xpAwarded: number };
 
 type ScanState =
   | { type: 'camera' }
   | { type: 'loading' }
   | { type: 'no_cat' }
   | { type: 'error'; message: string }
-  | { type: 'matched'; cat: Cat; xpAwarded: number; levelUp: boolean }
+  | {
+      type: 'matched';
+      cat: Cat;
+      xpAwarded: number;
+      levelUp: boolean;
+      scanPhotoUrl?: string;
+      canShareToChat?: boolean;
+    }
   | {
       type: 'confirm_needed';
       candidateCat: Cat;
@@ -129,6 +143,8 @@ export function ScanScreen() {
             cat: result.cat,
             xpAwarded: result.xpAwarded,
             levelUp: result.levelUp,
+            scanPhotoUrl: result.scanPhotoUrl,
+            canShareToChat: result.canShareToChat,
           });
           break;
         case 'confirm_needed':
@@ -183,6 +199,8 @@ export function ScanScreen() {
           cat: result.cat,
           xpAwarded: result.xpAwarded,
           levelUp: result.levelUp,
+          scanPhotoUrl: result.scanPhotoUrl,
+          canShareToChat: result.canShareToChat,
         });
       } else {
         setScanState({
@@ -198,7 +216,26 @@ export function ScanScreen() {
     }
   };
 
+  // Requirement 4.9: offer Lvl1+ owners the option to post the scan photo to
+  // the cat's community chat after a confirmed match.
+  const [shareState, setShareState] = useState<'idle' | 'sharing' | 'shared'>('idle');
+
+  const handleShareToChat = async () => {
+    if (scanState.type !== 'matched' || !scanState.scanPhotoUrl) return;
+    setShareState('sharing');
+    try {
+      await api.post(`/cats/${scanState.cat.id}/messages`, {
+        content: '📸 Shared a new sighting photo!',
+        photoUrl: scanState.scanPhotoUrl,
+      });
+      setShareState('shared');
+    } catch {
+      setShareState('idle');
+    }
+  };
+
   const handleRetry = () => {
+    setShareState('idle');
     // A fresh CameraView mounts when we return to the camera state; its
     // readiness must be re-confirmed via onCameraReady before capture works.
     setCameraReady(false);
@@ -314,6 +351,23 @@ export function ScanScreen() {
           <Text style={styles.catName}>{scanState.cat.name}</Text>
           <Text style={styles.xpText}>+{scanState.xpAwarded} XP</Text>
           {scanState.levelUp && <Text style={styles.levelUpText}>Level Up!</Text>}
+          {scanState.canShareToChat && scanState.scanPhotoUrl && (
+            <TouchableOpacity
+              style={[styles.shareButton, shareState === 'shared' && styles.shareButtonDone]}
+              onPress={handleShareToChat}
+              disabled={shareState !== 'idle'}
+              accessibilityLabel="Share photo to community chat"
+              accessibilityRole="button"
+            >
+              {shareState === 'sharing' ? (
+                <ActivityIndicator size="small" color="#fff" />
+              ) : (
+                <Text style={styles.buttonText}>
+                  {shareState === 'shared' ? '✓ Shared to Chat' : 'Share Photo to Chat'}
+                </Text>
+              )}
+            </TouchableOpacity>
+          )}
           <TouchableOpacity
             style={styles.button}
             onPress={() => handleGoToProfile(scanState.cat.id)}
@@ -571,6 +625,18 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontWeight: '600',
+  },
+  shareButton: {
+    backgroundColor: '#FF8C00',
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 8,
+    marginTop: 12,
+    minWidth: 200,
+    alignItems: 'center',
+  },
+  shareButtonDone: {
+    backgroundColor: '#9E9E9E',
   },
   secondaryButton: {
     paddingHorizontal: 24,

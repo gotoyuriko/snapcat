@@ -9,12 +9,13 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
+  Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRoute, RouteProp } from '@react-navigation/native';
 import { RootStackParamList } from '../navigation';
 import { useAuth } from '../hooks/useAuth';
-import { api } from '../services/api';
+import { api, resolvePhotoUrl } from '../services/api';
 import { getSocket, connectSocket } from '../services/socket';
 
 /**
@@ -33,6 +34,7 @@ interface ChatMessage {
   senderId: string;
   senderName?: string;
   content: string;
+  photoUrl?: string | null;
   createdAt: string;
 }
 
@@ -255,6 +257,13 @@ export function ChatScreen() {
             {item.senderName || item.senderId.slice(0, 8)}
           </Text>
         )}
+        {item.photoUrl && (
+          <Image
+            source={{ uri: resolvePhotoUrl(item.photoUrl) }}
+            style={styles.messagePhoto}
+            resizeMode="cover"
+          />
+        )}
         <Text style={styles.messageContent}>{item.content}</Text>
         <Text style={styles.messageTime}>
           {new Date(item.createdAt).toLocaleTimeString([], {
@@ -437,6 +446,13 @@ const styles = StyleSheet.create({
   messageContent: {
     fontSize: 15,
     color: '#333',
+  },
+  messagePhoto: {
+    width: 200,
+    height: 150,
+    borderRadius: 8,
+    marginBottom: 6,
+    backgroundColor: '#eee',
   },
   messageTime: {
     fontSize: 11,

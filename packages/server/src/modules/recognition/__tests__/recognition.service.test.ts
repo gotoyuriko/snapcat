@@ -40,6 +40,10 @@ const mockPrisma = {
   user: {
     update: jest.fn(),
   },
+  // Non-owner by default; individual tests override for owner-confirm cases.
+  ownership: {
+    findUnique: jest.fn(),
+  },
 } as unknown as jest.Mocked<PrismaClient>;
 
 // Mock GamificationService — recognition delegates all XP awarding to it
@@ -119,6 +123,9 @@ describe('RecognitionService', () => {
 
     // Default: vector store resolves
     (mockVectorService.store as jest.Mock).mockResolvedValue(undefined);
+
+    // Default: scanner has no ownership record (non-owner path)
+    (mockPrisma.ownership as any).findUnique.mockResolvedValue(null);
   });
 
   describe('recognizeCat', () => {
@@ -193,6 +200,34 @@ describe('RecognitionService', () => {
           expect(result.xpAwarded).toBeGreaterThan(0);
           expect(typeof result.levelUp).toBe('boolean');
         }
+      });
+
+      it('should route Lvl1+ owners to confirm_needed even above the match threshold (Req 4.4)', async () => {
+        (mockPrisma.ownership as any).findUnique.mockResolvedValue({
+          userId: testUserId,
+          catId: 'cat-abc',
+          level: 2,
+          xp: 10,
+        });
+
+        const result = await service.recognizeCat(testPhoto, testGPS, testUserId);
+
+        expect(result.result).toBe('confirm_needed');
+        expect((mockPrisma.sighting as any).create).not.toHaveBeenCalled();
+        expect(mockGamificationService.recordAction).not.toHaveBeenCalled();
+      });
+
+      it('should auto-confirm for a Lvl0 discoverer (Req 4.5)', async () => {
+        (mockPrisma.ownership as any).findUnique.mockResolvedValue({
+          userId: testUserId,
+          catId: 'cat-abc',
+          level: 0,
+          xp: 0,
+        });
+
+        const result = await service.recognizeCat(testPhoto, testGPS, testUserId);
+
+        expect(result.result).toBe('matched');
       });
 
       it('should create a sighting record', async () => {

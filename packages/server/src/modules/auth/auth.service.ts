@@ -115,6 +115,17 @@ export class AuthService {
   }
 
   /**
+   * Update the authenticated user's editable profile fields.
+   */
+  async updateProfile(userId: string, displayName: string) {
+    return prisma.user.update({
+      where: { id: userId },
+      data: { displayName },
+      select: { id: true, displayName: true, email: true },
+    });
+  }
+
+  /**
    * Verify an access token. Returns the decoded payload.
    * Enforces expiry with zero clock tolerance.
    */

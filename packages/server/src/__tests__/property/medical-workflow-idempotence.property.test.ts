@@ -118,32 +118,26 @@ async function runWorkflowWithScenario(
   // Configure mocks based on scenario
   switch (scenario.type) {
     case 'staff_rejected':
-      mockVerifyRequest.mockResolvedValue({ approved: false, reason: 'Invalid docs' });
       break;
 
     case 'service_timeout':
-      mockVerifyRequest.mockResolvedValue({ approved: true, partnerId });
       break;
 
     case 'happy_path':
-      mockVerifyRequest.mockResolvedValue({ approved: true, partnerId });
       mockVerifyInvoice.mockResolvedValue({ valid: true });
       break;
 
     case 'invoice_rejected_no_resubmit':
-      mockVerifyRequest.mockResolvedValue({ approved: true, partnerId });
       mockVerifyInvoice.mockResolvedValue({ valid: false, reason: 'Bad invoice' });
       break;
 
     case 'invoice_rejected_resubmit_valid':
-      mockVerifyRequest.mockResolvedValue({ approved: true, partnerId });
       mockVerifyInvoice
         .mockResolvedValueOnce({ valid: false, reason: 'Bad invoice' })
         .mockResolvedValueOnce({ valid: true });
       break;
 
     case 'invoice_rejected_resubmit_invalid':
-      mockVerifyRequest.mockResolvedValue({ approved: true, partnerId });
       mockVerifyInvoice.mockResolvedValue({ valid: false, reason: 'Still bad' });
       break;
   }
@@ -161,9 +155,15 @@ async function runWorkflowWithScenario(
   await new Promise((r) => setImmediate(r));
 
   // Drive the workflow based on scenario
+  if (scenario.type === 'staff_rejected') {
+    simulateSignal('staffDecision', { approved: false });
+    await new Promise((r) => setImmediate(r));
+  } else {
+    simulateSignal('staffDecision', { approved: true, partnerId });
+    await new Promise((r) => setImmediate(r));
+  }
   switch (scenario.type) {
     case 'staff_rejected':
-      // Workflow completes immediately after verifyRequest
       break;
 
     case 'service_timeout':

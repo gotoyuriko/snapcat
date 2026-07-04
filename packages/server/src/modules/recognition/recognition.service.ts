@@ -66,7 +66,16 @@ export class RecognitionService {
 
     // Apply thresholds
     if (bestMatch && bestMatch.similarity >= MATCH_THRESHOLD) {
-      // High confidence match
+      // Requirement 4.4: Lvl1+ owners of the matched cat are always asked to
+      // confirm ("Is this <Cat>?"), even above the auto-match threshold —
+      // their confirmation is more reliable than the embedding score.
+      const ownership = await this.prisma.ownership.findUnique({
+        where: { userId_catId: { userId, catId: bestMatch.catId } },
+      });
+      if (ownership && ownership.level >= 1) {
+        return this.handleConfirmNeeded(bestMatch.catId, embedding, photoUrl ?? '');
+      }
+      // High confidence match — auto-confirm for non-owners (Req 4.3/4.5)
       return this.handleMatch(bestMatch.catId, bestMatch.similarity, embedding, userId, userGPS, photoUrl);
     } else if (bestMatch && bestMatch.similarity >= CONFIRM_THRESHOLD) {
       // Borderline — ask user to confirm
@@ -152,11 +161,21 @@ export class RecognitionService {
     // Award re-sighting XP: 3 XP once per unique daily scan per cat (Req 6.2)
     const xpResult = await this.gamificationService.recordAction(userId, catId, 'scan');
 
+    // Requirement 4.9: Lvl1+ owners may share the scan photo to the cat's
+    // community chat. Level is read after XP so a promotion from this very
+    // scan already counts.
+    const ownership = await this.prisma.ownership.findUnique({
+      where: { userId_catId: { userId, catId } },
+    });
+    const canShareToChat = (ownership?.level ?? 0) >= 1 && !!photoUrl;
+
     return {
       result: 'matched',
       cat: this.toCatDTO(cat),
       xpAwarded: xpResult.xpAwarded,
       levelUp: xpResult.levelUp,
+      scanPhotoUrl: photoUrl,
+      canShareToChat,
     };
   }
 

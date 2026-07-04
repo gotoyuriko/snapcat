@@ -36,6 +36,7 @@ describe('RecognitionController', () => {
       storePhoto: jest.fn().mockResolvedValue('stub.jpg'),
       buildUrl: jest.fn().mockReturnValue(STUB_PHOTO_URL),
       resolvePhotoPath: jest.fn(),
+      deletePhoto: jest.fn().mockResolvedValue(undefined),
     } as unknown as jest.Mocked<PhotoStorageService>;
 
     controller = new RecognitionController(mockService, mockPhotoStorageService);

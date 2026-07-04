@@ -1,8 +1,9 @@
-import React from 'react';
-import { View, TouchableOpacity, StyleSheet, Text } from 'react-native';
+import React, { useCallback } from 'react';
+import { View, TouchableOpacity, StyleSheet, Text, Alert } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
+import { useCameraPermissions } from 'expo-camera';
 import { MapScreen } from '../screens/MapScreen';
 import { CatpediaScreen } from '../screens/CatpediaScreen';
 import { WalletScreen } from '../screens/WalletScreen';
@@ -15,13 +16,37 @@ function CustomTabBar({ state, navigation }: BottomTabBarProps) {
   const isMap = activeName === 'Map';
   const isWallet = activeName === 'Wallet';
 
+  // Requirement 1.4: the scan button is disabled while camera permission is
+  // denied. Tapping the greyed-out button re-requests when the OS still allows
+  // prompting, otherwise points the user to Settings.
+  const [cameraPermission, requestCameraPermission] = useCameraPermissions();
+  const cameraDenied = cameraPermission != null && !cameraPermission.granted;
+
+  const handleScanPress = useCallback(() => {
+    if (!cameraDenied) {
+      navigation.getParent()?.navigate('Scan');
+      return;
+    }
+    if (cameraPermission?.canAskAgain) {
+      requestCameraPermission();
+    } else {
+      Alert.alert(
+        'Camera Unavailable',
+        'Cat scanning is unavailable without camera permission. Enable the camera for this app in your device Settings.',
+      );
+    }
+  }, [cameraDenied, cameraPermission, requestCameraPermission, navigation]);
+
   return (
     <View style={styles.wrapper}>
       {/* Camera — floating FAB, detached above the bar, centered on screen */}
       <TouchableOpacity
-        style={styles.cameraButton}
-        onPress={() => navigation.getParent()?.navigate('Scan')}
+        style={[styles.cameraButton, cameraDenied && styles.cameraButtonDisabled]}
+        onPress={handleScanPress}
         activeOpacity={0.85}
+        accessibilityLabel={cameraDenied ? 'Scanning unavailable — camera permission denied' : 'Scan a cat'}
+        accessibilityRole="button"
+        accessibilityState={{ disabled: cameraDenied }}
       >
         <Ionicons name="camera" size={30} color="#fff" />
       </TouchableOpacity>
@@ -124,5 +149,10 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 8,
     zIndex: 10,
+  },
+  cameraButtonDisabled: {
+    backgroundColor: '#BDBDBD',
+    shadowColor: '#000',
+    shadowOpacity: 0.15,
   },
 });

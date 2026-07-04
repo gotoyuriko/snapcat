@@ -2,14 +2,17 @@ import { Router } from 'express';
 import multer from 'multer';
 import { authMiddleware } from '../../middleware/auth';
 import { ownershipGate } from '../../middleware/ownershipGate';
+import { staffGuard } from '../../middleware/staffGuard';
 import { MedicalController } from './medical.controller';
 
 /**
  * Medical Routes
- * POST /              — Create a medical care request (Lvl7+ ownership required)
- * POST /:id/approve   — Approve request (staff/partner) — TODO
- * POST /:id/document  — Upload receipt/document — TODO
- * POST /:id/complete  — Mark as completed — TODO
+ * POST /                    — Create a medical care request (Lvl7+ ownership required)
+ * POST /:id/approve         — Staff approves + assigns certified partner (signals workflow)
+ * POST /:id/reject          — Staff rejects (signals workflow)
+ * POST /:id/partner-accept  — Partner accepted the assignment (staff-entered)
+ * POST /:id/complete        — Submit partner invoice + user receipt (both required)
+ * GET  /documents/:fileName — Serve a signed private document
  */
 
 const controller = new MedicalController();
@@ -35,7 +38,31 @@ medicalRoutes.post(
   (req, res) => controller.create(req, res),
 );
 
-// Future routes (Task 11.2, 11.3, etc.)
-// medicalRoutes.post('/:id/approve', authMiddleware, (req, res) => controller.approve(req, res));
-// medicalRoutes.post('/:id/document', authMiddleware, upload.single('document'), (req, res) => controller.uploadDocument(req, res));
-// medicalRoutes.post('/:id/complete', authMiddleware, (req, res) => controller.complete(req, res));
+// GET /api/medical-requests/documents/:fileName — signed private document access (Req 9.12).
+// No auth middleware: access control is the HMAC signature + expiry themselves.
+medicalRoutes.get('/documents/:fileName', (req, res) => controller.serveDocument(req, res));
+
+// Staff review decisions — signal the Temporal workflow (Req 9.5–9.7)
+medicalRoutes.post('/:id/approve', authMiddleware, staffGuard, (req, res) =>
+  controller.approve(req, res),
+);
+medicalRoutes.post('/:id/reject', authMiddleware, staffGuard, (req, res) =>
+  controller.reject(req, res),
+);
+
+// Partner acceptance — partners have no login of their own, so staff enter it
+medicalRoutes.post('/:id/partner-accept', authMiddleware, staffGuard, (req, res) =>
+  controller.partnerAccept(req, res),
+);
+
+// Completion documents: partner invoice + user receipt, both mandatory (Req 9.8).
+// ?resubmission=true resubmits after a documentation rejection.
+medicalRoutes.post(
+  '/:id/complete',
+  authMiddleware,
+  upload.fields([
+    { name: 'invoice', maxCount: 1 },
+    { name: 'receipt', maxCount: 1 },
+  ]),
+  (req, res) => controller.complete(req, res),
+);

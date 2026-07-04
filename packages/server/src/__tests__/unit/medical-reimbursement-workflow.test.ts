@@ -109,7 +109,6 @@ describe('MedicalReimbursementWorkflow', () => {
 
   describe('Happy path — full reimbursement flow (Req 9.3-9.8)', () => {
     it('should complete with "reimbursed" status when all steps succeed', async () => {
-      mockVerifyRequest.mockResolvedValue({ approved: true, partnerId: PARTNER_ID });
       mockNotifyPartner.mockResolvedValue(undefined);
       mockUpdateMedicalRequestStatus.mockResolvedValue(undefined);
       mockVerifyInvoice.mockResolvedValue({ valid: true });
@@ -122,6 +121,10 @@ describe('MedicalReimbursementWorkflow', () => {
       const workflowPromise = medicalReimbursementWorkflow(REQUEST_ID, REQUESTER_ID, CAT_ID);
 
       // Allow microtasks to run
+      await new Promise((r) => setImmediate(r));
+
+      // Signal: staff approved and assigned a partner
+      simulateSignal('staffDecision', { approved: true, partnerId: PARTNER_ID });
       await new Promise((r) => setImmediate(r));
 
       // Signal: partner accepted
@@ -137,7 +140,6 @@ describe('MedicalReimbursementWorkflow', () => {
       expect(result).toBe('reimbursed');
 
       // Verify correct activity calls
-      expect(mockVerifyRequest).toHaveBeenCalledWith(REQUEST_ID);
       expect(mockUpdateMedicalRequestStatus).toHaveBeenCalledWith(REQUEST_ID, 'verified', PARTNER_ID);
       expect(mockNotifyPartner).toHaveBeenCalledWith(PARTNER_ID, REQUEST_ID);
       expect(mockUpdateMedicalRequestStatus).toHaveBeenCalledWith(REQUEST_ID, 'in_progress');
@@ -150,11 +152,16 @@ describe('MedicalReimbursementWorkflow', () => {
 
   describe('Rejection by staff verification (Req 9.3)', () => {
     it('should return "rejected" when staff denies the request', async () => {
-      mockVerifyRequest.mockResolvedValue({ approved: false, reason: 'Invalid docs' });
       mockUpdateMedicalRequestStatus.mockResolvedValue(undefined);
       mockNotifyUser.mockResolvedValue(undefined);
 
-      const result = await medicalReimbursementWorkflow(REQUEST_ID, REQUESTER_ID, CAT_ID);
+      const workflowPromise = medicalReimbursementWorkflow(REQUEST_ID, REQUESTER_ID, CAT_ID);
+      await new Promise((r) => setImmediate(r));
+
+      simulateSignal('staffDecision', { approved: false });
+      await new Promise((r) => setImmediate(r));
+
+      const result = await workflowPromise;
 
       expect(result).toBe('rejected');
       expect(mockUpdateMedicalRequestStatus).toHaveBeenCalledWith(REQUEST_ID, 'rejected');
@@ -168,7 +175,6 @@ describe('MedicalReimbursementWorkflow', () => {
 
   describe('7-day service completion timeout (Req 9.5)', () => {
     it('should return "timed_out" when service not completed within 7 days', async () => {
-      mockVerifyRequest.mockResolvedValue({ approved: true, partnerId: PARTNER_ID });
       mockNotifyPartner.mockResolvedValue(undefined);
       mockUpdateMedicalRequestStatus.mockResolvedValue(undefined);
       mockNotifyUser.mockResolvedValue(undefined);
@@ -176,6 +182,9 @@ describe('MedicalReimbursementWorkflow', () => {
 
       const workflowPromise = medicalReimbursementWorkflow(REQUEST_ID, REQUESTER_ID, CAT_ID);
 
+      await new Promise((r) => setImmediate(r));
+
+      simulateSignal('staffDecision', { approved: true, partnerId: PARTNER_ID });
       await new Promise((r) => setImmediate(r));
 
       // Signal partner accepted
@@ -199,7 +208,6 @@ describe('MedicalReimbursementWorkflow', () => {
 
   describe('Invoice rejection with re-submission (Req 9.6, 9.7)', () => {
     it('should allow rejected → reimbursed transition on valid re-submission', async () => {
-      mockVerifyRequest.mockResolvedValue({ approved: true, partnerId: PARTNER_ID });
       mockNotifyPartner.mockResolvedValue(undefined);
       mockUpdateMedicalRequestStatus.mockResolvedValue(undefined);
       mockVerifyInvoice
@@ -212,6 +220,9 @@ describe('MedicalReimbursementWorkflow', () => {
 
       const workflowPromise = medicalReimbursementWorkflow(REQUEST_ID, REQUESTER_ID, CAT_ID);
 
+      await new Promise((r) => setImmediate(r));
+
+      simulateSignal('staffDecision', { approved: true, partnerId: PARTNER_ID });
       await new Promise((r) => setImmediate(r));
 
       // Signal partner accepted
@@ -242,7 +253,6 @@ describe('MedicalReimbursementWorkflow', () => {
     });
 
     it('should stay rejected if resubmitted invoice is also invalid', async () => {
-      mockVerifyRequest.mockResolvedValue({ approved: true, partnerId: PARTNER_ID });
       mockNotifyPartner.mockResolvedValue(undefined);
       mockUpdateMedicalRequestStatus.mockResolvedValue(undefined);
       mockVerifyInvoice.mockResolvedValue({ valid: false, reason: 'Still invalid' });
@@ -251,6 +261,9 @@ describe('MedicalReimbursementWorkflow', () => {
 
       const workflowPromise = medicalReimbursementWorkflow(REQUEST_ID, REQUESTER_ID, CAT_ID);
 
+      await new Promise((r) => setImmediate(r));
+
+      simulateSignal('staffDecision', { approved: true, partnerId: PARTNER_ID });
       await new Promise((r) => setImmediate(r));
 
       simulateSignal('partnerAccepted');
@@ -273,7 +286,6 @@ describe('MedicalReimbursementWorkflow', () => {
     });
 
     it('should stay rejected if no resubmission within timeout', async () => {
-      mockVerifyRequest.mockResolvedValue({ approved: true, partnerId: PARTNER_ID });
       mockNotifyPartner.mockResolvedValue(undefined);
       mockUpdateMedicalRequestStatus.mockResolvedValue(undefined);
       mockVerifyInvoice.mockResolvedValue({ valid: false, reason: 'Bad invoice' });
@@ -282,6 +294,9 @@ describe('MedicalReimbursementWorkflow', () => {
 
       const workflowPromise = medicalReimbursementWorkflow(REQUEST_ID, REQUESTER_ID, CAT_ID);
 
+      await new Promise((r) => setImmediate(r));
+
+      simulateSignal('staffDecision', { approved: true, partnerId: PARTNER_ID });
       await new Promise((r) => setImmediate(r));
 
       simulateSignal('partnerAccepted');
@@ -314,7 +329,6 @@ describe('MedicalReimbursementWorkflow', () => {
 
   describe('Workflow status transitions', () => {
     it('should follow correct status progression for happy path', async () => {
-      mockVerifyRequest.mockResolvedValue({ approved: true, partnerId: PARTNER_ID });
       mockNotifyPartner.mockResolvedValue(undefined);
       mockUpdateMedicalRequestStatus.mockResolvedValue(undefined);
       mockVerifyInvoice.mockResolvedValue({ valid: true });
@@ -325,6 +339,8 @@ describe('MedicalReimbursementWorkflow', () => {
 
       const workflowPromise = medicalReimbursementWorkflow(REQUEST_ID, REQUESTER_ID, CAT_ID);
 
+      await new Promise((r) => setImmediate(r));
+      simulateSignal('staffDecision', { approved: true, partnerId: PARTNER_ID });
       await new Promise((r) => setImmediate(r));
       simulateSignal('partnerAccepted');
       await new Promise((r) => setImmediate(r));

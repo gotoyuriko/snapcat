@@ -21,6 +21,10 @@ const logoutSchema = z.object({
   refreshToken: z.string().min(1),
 });
 
+const updateProfileSchema = z.object({
+  displayName: z.string().trim().min(1).max(100),
+});
+
 export class AuthController {
   private authService: AuthService;
 
@@ -100,6 +104,28 @@ export class AuthController {
       const { refreshToken } = parsed.data;
       await this.authService.logout(refreshToken);
       res.status(200).json({ message: 'Logged out successfully' });
+    } catch (err: any) {
+      const status = err.status || 500;
+      res.status(status).json({ error: err.message });
+    }
+  }
+
+  async updateProfile(req: Request, res: Response): Promise<void> {
+    const userId = req.user?.userId;
+    if (!userId) {
+      res.status(401).json({ error: 'Unauthorized' });
+      return;
+    }
+
+    const parsed = updateProfileSchema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: 'Validation failed', details: parsed.error.flatten() });
+      return;
+    }
+
+    try {
+      const user = await this.authService.updateProfile(userId, parsed.data.displayName);
+      res.status(200).json({ userId: user.id, displayName: user.displayName, email: user.email });
     } catch (err: any) {
       const status = err.status || 500;
       res.status(status).json({ error: err.message });

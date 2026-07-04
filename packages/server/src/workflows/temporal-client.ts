@@ -10,9 +10,11 @@ import { config } from '../config';
 import { MEDICAL_TASK_QUEUE, DONATION_TASK_QUEUE } from './worker';
 import {
   medicalReimbursementWorkflow,
+  staffDecisionSignal,
   partnerAcceptedSignal,
   serviceCompletedSignal,
   documentsResubmittedSignal,
+  StaffDecision,
 } from './medical-reimbursement.workflow';
 import { donationEscrowWorkflow } from './donation-escrow.workflow';
 
@@ -59,6 +61,18 @@ export async function startMedicalReimbursementWorkflow(
   });
 
   return handle.workflowId;
+}
+
+/**
+ * Signal a running workflow with the staff review decision (Req 9.5–9.7).
+ */
+export async function signalStaffDecision(
+  workflowId: string,
+  decision: StaffDecision,
+): Promise<void> {
+  const client = await getTemporalClient();
+  const handle: WorkflowHandle = client.workflow.getHandle(workflowId);
+  await handle.signal(staffDecisionSignal, decision);
 }
 
 /**

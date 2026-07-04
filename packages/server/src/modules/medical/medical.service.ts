@@ -1,6 +1,12 @@
-import { PrismaClient, MedicalRequest as PrismaMedicalRequest } from '@prisma/client';
+import { PrismaClient, MedicalRequest as PrismaMedicalRequest, Partner } from '@prisma/client';
 import { DocumentStorageService } from './document-storage.service';
-import { startMedicalReimbursementWorkflow } from '../../workflows/temporal-client';
+import {
+  startMedicalReimbursementWorkflow,
+  signalStaffDecision,
+  signalPartnerAccepted,
+  signalServiceCompleted,
+  signalDocumentsResubmitted,
+} from '../../workflows/temporal-client';
 
 const prisma = new PrismaClient();
 
@@ -8,7 +14,15 @@ export interface CreateMedicalRequestInput {
   catId: string;
   requesterId: string;
   type: string;
-  documents?: Array<{ buffer: Buffer; originalName: string }>;
+  reason: string;
+  documents: Array<{ buffer: Buffer; originalName: string }>;
+}
+
+export class MedicalRequestNotFoundError extends Error {
+  constructor() {
+    super('Medical request not found');
+    this.name = 'MedicalRequestNotFoundError';
+  }
 }
 
 /**
@@ -34,7 +48,7 @@ export class MedicalService {
    * Requirement 15.4: Idempotent workflow start via workflowId = requestId
    */
   async createRequest(input: CreateMedicalRequestInput): Promise<PrismaMedicalRequest> {
-    const { catId, requesterId, type, documents } = input;
+    const { catId, requesterId, type, reason, documents } = input;
 
     // Generate a placeholder ID for document storage path
     const requestId = crypto.randomUUID();
@@ -59,6 +73,7 @@ export class MedicalService {
         catId,
         requesterId,
         type,
+        reason,
         status: 'pending',
         documents: documentUrls,
         workflowId: requestId, // workflowId = requestId for idempotence
@@ -76,35 +91,88 @@ export class MedicalService {
     return medicalRequest;
   }
 
-  async approveRequest(requestId: string, partnerId: string): Promise<PrismaMedicalRequest> {
-    // TODO: Update status, signal Temporal workflow (Task 11.3)
-    return prisma.medicalRequest.update({
-      where: { id: requestId },
-      data: { status: 'verified', partnerId },
+  /**
+   * Certified partner locations shown to the requester when initiating a
+   * request (Requirement 9.13). Reimbursement is only processed for visits
+   * to one of these verified partners.
+   */
+  async getCertifiedPartners(): Promise<Pick<Partner, 'id' | 'name' | 'type' | 'contactEmail'>[]> {
+    return prisma.partner.findMany({
+      where: { verified: true },
+      select: { id: true, name: true, type: true, contactEmail: true },
     });
   }
 
-  async uploadDocument(requestId: string, documentUrl: string): Promise<PrismaMedicalRequest> {
-    const request = await prisma.medicalRequest.findUnique({
+  private async getRequestOrThrow(requestId: string): Promise<PrismaMedicalRequest> {
+    const request = await prisma.medicalRequest.findUnique({ where: { id: requestId } });
+    if (!request) throw new MedicalRequestNotFoundError();
+    return request;
+  }
+
+  /**
+   * Staff approves the request and assigns a certified partner (Req 9.5, 9.6).
+   * Signals the workflow, which owns the status transition + notifications.
+   */
+  async approveRequest(
+    requestId: string,
+    partnerId: string,
+    appointmentDetails?: string,
+  ): Promise<void> {
+    await this.getRequestOrThrow(requestId);
+    const partner = await prisma.partner.findUnique({ where: { id: partnerId } });
+    if (!partner || !partner.verified) {
+      throw new Error('Partner not found or not certified');
+    }
+    await signalStaffDecision(requestId, { approved: true, partnerId, appointmentDetails });
+  }
+
+  /** Staff rejects the request (Req 9.7). The workflow updates status + notifies. */
+  async rejectRequest(requestId: string): Promise<void> {
+    await this.getRequestOrThrow(requestId);
+    await signalStaffDecision(requestId, { approved: false });
+  }
+
+  /** Partner accepts the assignment — moves the workflow to in_progress. */
+  async partnerAccept(requestId: string): Promise<void> {
+    await this.getRequestOrThrow(requestId);
+    await signalPartnerAccepted(requestId);
+  }
+
+  /**
+   * Submit completion documents (Req 9.8): partner invoice AND user receipt
+   * are both required before the workflow may progress toward 'reimbursed'.
+   * When `resubmission` is true, signals the rejected → reimbursed path.
+   */
+  async submitCompletionDocuments(
+    requestId: string,
+    invoice: { buffer: Buffer; originalName: string },
+    receipt: { buffer: Buffer; originalName: string },
+    resubmission: boolean,
+  ): Promise<{ invoiceUrl: string; receiptUrl: string }> {
+    const request = await this.getRequestOrThrow(requestId);
+
+    const invoiceUrl = await this.documentStorage.storeDocument(
+      invoice.buffer,
+      invoice.originalName,
+      requestId,
+    );
+    const receiptUrl = await this.documentStorage.storeDocument(
+      receipt.buffer,
+      receipt.originalName,
+      requestId,
+    );
+
+    await prisma.medicalRequest.update({
       where: { id: requestId },
+      data: { documents: [...request.documents, invoiceUrl, receiptUrl] },
     });
-    if (!request) {
-      throw new Error('Medical request not found');
+
+    if (resubmission) {
+      await signalDocumentsResubmitted(requestId, invoiceUrl);
+    } else {
+      await signalServiceCompleted(requestId, invoiceUrl);
     }
 
-    return prisma.medicalRequest.update({
-      where: { id: requestId },
-      data: {
-        documents: [...request.documents, documentUrl],
-      },
-    });
-  }
-
-  async completeRequest(requestId: string): Promise<PrismaMedicalRequest> {
-    // TODO: Mark as completed, trigger reimbursement (Task 11.3)
-    return prisma.medicalRequest.update({
-      where: { id: requestId },
-      data: { status: 'reimbursed' },
-    });
+    return { invoiceUrl, receiptUrl };
   }
 }

@@ -123,4 +123,18 @@ describe('SightingService.appendSighting — GPS Fuzz Property Tests', () => {
       { numRuns: 200 },
     );
   });
+
+  /**
+   * **Validates: Requirement 5.7**
+   *
+   * Only scan sightings may update the cat's lastKnownApproxLocation;
+   * manual reports are recorded but never move the cat.
+   */
+  it('updates cat location for scan sightings but never for manual ones', async () => {
+    await service.appendSighting('cat-1', 'r-1', { lat: 3.14, lng: 101.7 }, '', 'manual');
+    expect(mockPrisma.cat.update).not.toHaveBeenCalled();
+
+    await service.appendSighting('cat-1', 'r-1', { lat: 3.14, lng: 101.7 }, '', 'scan');
+    expect(mockPrisma.cat.update).toHaveBeenCalledTimes(1);
+  });
 });

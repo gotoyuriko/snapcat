@@ -55,9 +55,10 @@ export class SightingService {
       },
     });
 
-    // Update cat's last known approximate location with fuzzed coords (Req 5.5)
-    // Only update if we have valid fuzzed coordinates
-    if (fuzzed.fuzzedLat !== null && fuzzed.fuzzedLng !== null) {
+    // Update cat's last known approximate location with fuzzed coords (Req 5.5).
+    // Req 5.7: ONLY registered scan sightings may move a cat's location —
+    // manual reports are recorded but never update lastKnownApproxLocation.
+    if (type === 'scan' && fuzzed.fuzzedLat !== null && fuzzed.fuzzedLng !== null) {
       await this.updateCatLastKnownLocation(catId, fuzzedLat, fuzzedLng);
     }
 

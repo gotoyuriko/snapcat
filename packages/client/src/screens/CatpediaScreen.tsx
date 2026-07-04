@@ -15,10 +15,27 @@ import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation';
 import { api, resolvePhotoUrl } from '../services/api';
+import { useLocation } from '../hooks/useLocation';
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
-type CatpediaFilter = 'all' | 'discovered' | 'owned';
+/** 'nearby' is a client-side view over the 'all' response (Requirement 7.5). */
+type CatpediaFilter = 'all' | 'discovered' | 'owned' | 'nearby';
+
+// Requirement 7.5: Nearby search radius around the user's current location.
+const NEARBY_RADIUS_METERS = 100;
+
+/** Haversine distance in meters between two lat/lng points */
+function distanceMeters(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const R = 6371000;
+  const toRad = (deg: number) => (deg * Math.PI) / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLng = toRad(lng2 - lng1);
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
 
 /** A cat that the user has discovered or owns — full details visible */
 interface DiscoveredCatEntry {
@@ -47,10 +64,12 @@ const FILTER_TABS: { label: string; value: CatpediaFilter }[] = [
   { label: 'All', value: 'all' },
   { label: 'Discovered', value: 'discovered' },
   { label: 'Owned', value: 'owned' },
+  { label: 'Nearby', value: 'nearby' },
 ];
 
 export function CatpediaScreen() {
   const navigation = useNavigation<NavigationProp>();
+  const { latitude, longitude, refreshLocation } = useLocation();
   const [filter, setFilter] = useState<CatpediaFilter>('all');
   const [entries, setEntries] = useState<CatpediaEntry[]>([]);
   const [loading, setLoading] = useState(true);
@@ -61,14 +80,34 @@ export function CatpediaScreen() {
     setLoading(true);
     setError(null);
     try {
-      const data = await api.get<CatpediaEntry[]>(`/catpedia?filter=${filterValue}`);
+      // 'nearby' is filtered client-side from the full list (Requirement 7.5)
+      const serverFilter = filterValue === 'nearby' ? 'all' : filterValue;
+      const data = await api.get<CatpediaEntry[]>(`/catpedia?filter=${serverFilter}`);
       setEntries(data);
+      if (filterValue === 'nearby') {
+        // Ensure we have a GPS fix for the distance filter
+        await refreshLocation();
+      }
     } catch (err) {
       setError('Failed to load Catpedia. Please try again.');
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [refreshLocation]);
+
+  // Requirement 7.5: Nearby reveals silhouettes of UNDISCOVERED cats within
+  // 100 m of the user's current location (based on last known scan location).
+  const visibleEntries =
+    filter === 'nearby'
+      ? latitude != null && longitude != null
+        ? entries.filter(
+            (e) =>
+              !e.discovered &&
+              distanceMeters(latitude, longitude, e.approxLat, e.approxLng) <=
+                NEARBY_RADIUS_METERS,
+          )
+        : []
+      : entries;
 
   useEffect(() => {
     fetchCatpedia(filter);
@@ -192,19 +231,23 @@ export function CatpediaScreen() {
             <Text style={styles.retryButtonText}>Retry</Text>
           </TouchableOpacity>
         </View>
-      ) : entries.length === 0 ? (
+      ) : visibleEntries.length === 0 ? (
         <View style={styles.centered}>
           <Text style={styles.emptyText}>
             {filter === 'all'
               ? 'No cats registered yet.'
               : filter === 'discovered'
                 ? 'No stray cats discovered yet.'
-                : "You don't own any cats yet."}
+                : filter === 'owned'
+                  ? "You don't own any cats yet."
+                  : latitude == null
+                    ? 'Location unavailable — enable location to find nearby cats.'
+                    : 'No undiscovered cats within 100 m. Take a walk!'}
           </Text>
         </View>
       ) : (
         <FlatList
-          data={entries}
+          data={visibleEntries}
           keyExtractor={(item) => item.id}
           renderItem={renderCatItem}
           contentContainerStyle={styles.listContent}
