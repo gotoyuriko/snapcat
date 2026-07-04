@@ -23,10 +23,5 @@
   },
   "engines": {
     "node": ">=20.0.0"
-  },
-  "overrides": {
-    "@mapbox/node-pre-gyp": {
-      "tar": "https://npm.aikido.io/1c90c427fe401abaaca95/tar@6.2.1-aikido.8"
-    }
   }
 }
