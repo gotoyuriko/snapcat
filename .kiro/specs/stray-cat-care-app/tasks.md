@@ -280,11 +280,11 @@ Implement the CodingKitty modular monolith (Node.js/TypeScript backend + React N
   - [x] 18.2 Audit all API responses to ensure no raw GPS coordinates are ever serialised.
     - Add a response interceptor that strips or checks raw lat/lng fields.
     - _Requirements: 5.5, 14.2_
-  - [ ]\* 18.3 Write property test: for any API response from `/map`, `/catpedia`, `/cats/:id`, and `/sightings`, no returned coordinate pair matches the raw input GPS (fuzz always applied).
+  - [x] 18.3 Write property test: for any API response from `/map`, `/catpedia`, `/cats/:id`, and `/sightings`, no returned coordinate pair matches the raw input GPS (fuzz always applied).
     - **Property 2: GPS fuzz invariant (API layer)**
     - **Validates: Requirements 5.5, 14.2**
 
-- [-] 19. Final checkpoint — All tests pass
+- [x] 19. Final checkpoint — All tests pass
   - Run full test suite (unit + property + integration). Verify Temporal workflows with Temporal dev server. Confirm security scanning passes on payment surface.
   - Ask the user if questions arise.
 
