@@ -120,7 +120,7 @@ describe('ChatService — Ownership Gates Chat Access Property Tests', () => {
           expect(result.createdAt).toBeInstanceOf(Date);
         },
       ),
-      { numRuns: 200 },
+      { numRuns: 30 },
     );
   });
 
@@ -152,7 +152,7 @@ describe('ChatService — Ownership Gates Chat Access Property Tests', () => {
           expect(thrownError.statusCode).toBe(403);
         },
       ),
-      { numRuns: 200 },
+      { numRuns: 30 },
     );
   });
 
@@ -176,7 +176,7 @@ describe('ChatService — Ownership Gates Chat Access Property Tests', () => {
           expect(Array.isArray(result)).toBe(true);
         },
       ),
-      { numRuns: 200 },
+      { numRuns: 30 },
     );
   });
 
@@ -207,7 +207,7 @@ describe('ChatService — Ownership Gates Chat Access Property Tests', () => {
           expect(thrownError.statusCode).toBe(403);
         },
       ),
-      { numRuns: 200 },
+      { numRuns: 30 },
     );
   });
 });

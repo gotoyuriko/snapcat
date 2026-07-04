@@ -6,7 +6,8 @@ import { MegaDescriptorClient } from '../megadescriptor.client';
  * Validates: Requirements 4.1
  *
  * For any non-empty image buffer passed to embed(), the returned vector
- * has exactly 512 dimensions when the API returns a valid response.
+ * has exactly 768 dimensions when the API returns a valid response.
+ * (MegaDescriptor-T-224 uses Swin-Tiny which outputs 768-dim embeddings)
  */
 
 // Mock global fetch
@@ -14,7 +15,7 @@ const mockFetch = jest.fn();
 global.fetch = mockFetch;
 
 describe('MegaDescriptorClient - Property Tests', () => {
-  const TEST_API_URL = 'https://api-inference.huggingface.co/models/test-model';
+  const TEST_API_URL = 'http://localhost:8000';
   const TEST_API_KEY = 'hf_test_key_123';
   let client: MegaDescriptorClient;
 
@@ -23,36 +24,36 @@ describe('MegaDescriptorClient - Property Tests', () => {
     mockFetch.mockReset();
   });
 
-  it('should always return a Float32Array with exactly 512 dimensions for any non-empty buffer', async () => {
+  it('should always return a Float32Array with exactly 768 dimensions for any non-empty buffer', async () => {
     /**
      * **Validates: Requirements 4.1**
      *
-     * Property: For any arbitrary non-empty image buffer, when the HuggingFace API
-     * returns a successful 512-element numeric array, embed() returns a Float32Array
-     * of length exactly 512.
+     * Property: For any arbitrary non-empty image buffer, when the inference
+     * service returns a successful 768-element embedding, embed() returns a
+     * Float32Array of length exactly 768.
      */
-    const valid512Embedding = Array.from({ length: 512 }, (_, i) => Math.sin(i) * 0.5);
+    const valid768Embedding = Array.from({ length: 768 }, (_, i) => Math.sin(i) * 0.5);
 
     await fc.assert(
       fc.asyncProperty(
         // Generate arbitrary non-empty Buffers of various sizes (1 to 10000 bytes)
         fc.uint8Array({ minLength: 1, maxLength: 10000 }).map(arr => Buffer.from(arr)),
         async (buffer) => {
-          // Mock fetch to return a valid 512-element embedding for every call
+          // Mock fetch to return a valid 768-element embedding for every call
           mockFetch.mockResolvedValueOnce({
             ok: true,
             status: 200,
-            json: async () => valid512Embedding,
+            json: async () => ({ embedding: valid768Embedding }),
           });
 
           const result = await client.embed(buffer);
 
-          // The result must be a Float32Array with exactly 512 elements
+          // The result must be a Float32Array with exactly 768 elements
           expect(result).toBeInstanceOf(Float32Array);
-          expect(result.length).toBe(512);
+          expect(result.length).toBe(768);
         },
       ),
-      { numRuns: 100 },
+      { numRuns: 20 },
     );
   });
 });

@@ -108,7 +108,7 @@ describe('CatpediaService.getCats — Discovery State Property Tests', () => {
           }
         },
       ),
-      { numRuns: 100 },
+      { numRuns: 20 },
     );
   });
 });

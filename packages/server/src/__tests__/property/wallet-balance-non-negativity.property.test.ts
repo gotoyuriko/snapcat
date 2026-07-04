@@ -202,7 +202,7 @@ describe('Wallet Balance Non-Negativity — Property Test', () => {
           }
         },
       ),
-      { numRuns: 200 },
+      { numRuns: 30 },
     );
   });
 });

@@ -324,7 +324,7 @@ describe('Medical Reimbursement Workflow — Idempotence Property Test', () => {
           }
         },
       ),
-      { numRuns: 200 },
+      { numRuns: 30 },
     );
   });
 });

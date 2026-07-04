@@ -5,4 +5,4 @@ python-multipart==0.0.20
 pillow==11.1.0
 numpy==2.2.1
 timm==1.0.12
-ultralytics==8.3.55
+onnxruntime==1.20.1

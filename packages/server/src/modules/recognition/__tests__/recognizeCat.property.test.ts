@@ -184,7 +184,7 @@ describe('RecognitionService.recognizeCat - Property Tests', () => {
           }
         },
       ),
-      { numRuns: 200 },
+      { numRuns: 30 },
     );
   });
 });

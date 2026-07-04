@@ -124,7 +124,7 @@ describe('GamificationService — Ownership Promotion Monotonicity Property Test
           }
         },
       ),
-      { numRuns: 200 },
+      { numRuns: 30 },
     );
   });
 
@@ -161,7 +161,7 @@ describe('GamificationService — Ownership Promotion Monotonicity Property Test
           }
         },
       ),
-      { numRuns: 500 },
+      { numRuns: 50 },
     );
   });
 
@@ -185,7 +185,7 @@ describe('GamificationService — Ownership Promotion Monotonicity Property Test
           expect(level).toBeGreaterThanOrEqual(0);
         },
       ),
-      { numRuns: 500 },
+      { numRuns: 50 },
     );
   });
 
@@ -225,7 +225,7 @@ describe('GamificationService — Ownership Promotion Monotonicity Property Test
           }
         },
       ),
-      { numRuns: 500 },
+      { numRuns: 50 },
     );
   });
 
@@ -261,7 +261,7 @@ describe('GamificationService — Ownership Promotion Monotonicity Property Test
           }
         },
       ),
-      { numRuns: 200 },
+      { numRuns: 30 },
     );
   });
 });

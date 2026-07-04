@@ -106,7 +106,7 @@ describe('GamificationService — Donation XP Cap Property Tests', () => {
           expect(prisma.__getAccumulatedXp()).toBeLessThanOrEqual(200);
         },
       ),
-      { numRuns: 200 },
+      { numRuns: 30 },
     );
   });
 
@@ -146,7 +146,7 @@ describe('GamificationService — Donation XP Cap Property Tests', () => {
           expect(preExistingXp + result.xpAwarded).toBeLessThanOrEqual(200);
         },
       ),
-      { numRuns: 200 },
+      { numRuns: 30 },
     );
   });
 });

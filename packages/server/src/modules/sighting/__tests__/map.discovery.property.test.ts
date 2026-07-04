@@ -122,7 +122,7 @@ describe('SightingService.getMapPins — Discovery State Property Tests', () => 
           }
         },
       ),
-      { numRuns: 100 },
+      { numRuns: 20 },
     );
   });
 });

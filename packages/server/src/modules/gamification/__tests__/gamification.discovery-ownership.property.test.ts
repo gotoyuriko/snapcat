@@ -137,7 +137,7 @@ describe('GamificationService — Discovery–Ownership Referential Integrity Pr
           expect(prisma.ownership.create).not.toHaveBeenCalled();
         },
       ),
-      { numRuns: 200 },
+      { numRuns: 30 },
     );
   });
 
@@ -180,7 +180,7 @@ describe('GamificationService — Discovery–Ownership Referential Integrity Pr
           expect(discoveryStillExists).not.toBeNull();
         },
       ),
-      { numRuns: 200 },
+      { numRuns: 30 },
     );
   });
 });

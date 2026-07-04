@@ -5,7 +5,7 @@ const mockFetch = jest.fn();
 global.fetch = mockFetch;
 
 describe('MegaDescriptorClient', () => {
-  const TEST_API_URL = 'https://api-inference.huggingface.co/models/test-model';
+  const TEST_API_URL = 'http://localhost:8000';
   const TEST_API_KEY = 'hf_test_key_123';
   let client: MegaDescriptorClient;
 
@@ -16,62 +16,37 @@ describe('MegaDescriptorClient', () => {
 
   describe('embed', () => {
     const validBuffer = Buffer.from('fake-image-data');
-    const valid512Embedding = Array.from({ length: 512 }, (_, i) => i * 0.001);
+    const valid768Embedding = Array.from({ length: 768 }, (_, i) => i * 0.001);
 
-    it('should return a Float32Array of length 512 for a flat array response', async () => {
+    it('should return a Float32Array of length 768 for a valid response', async () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
         status: 200,
-        json: async () => valid512Embedding,
+        json: async () => ({ embedding: valid768Embedding }),
       });
 
       const result = await client.embed(validBuffer);
 
       expect(result).toBeInstanceOf(Float32Array);
-      expect(result.length).toBe(512);
+      expect(result.length).toBe(768);
       expect(result[0]).toBeCloseTo(0);
       expect(result[1]).toBeCloseTo(0.001);
     });
 
-    it('should return a Float32Array of length 512 for a nested array response', async () => {
-      // HuggingFace batch response format: [[...embedding...]]
+    it('should send FormData POST to /embed endpoint', async () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
         status: 200,
-        json: async () => [valid512Embedding],
-      });
-
-      const result = await client.embed(validBuffer);
-
-      expect(result).toBeInstanceOf(Float32Array);
-      expect(result.length).toBe(512);
-    });
-
-    it('should send the correct headers and body', async () => {
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        status: 200,
-        json: async () => valid512Embedding,
+        json: async () => ({ embedding: valid768Embedding }),
       });
 
       await client.embed(validBuffer);
 
-      expect(mockFetch).toHaveBeenCalledWith(TEST_API_URL, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${TEST_API_KEY}`,
-          'Content-Type': 'application/octet-stream',
-        },
-        body: new Uint8Array(validBuffer),
-      });
-    });
-
-    it('should throw if API key is not configured', async () => {
-      const noKeyClient = new MegaDescriptorClient(TEST_API_URL, '');
-
-      await expect(noKeyClient.embed(validBuffer)).rejects.toThrow(
-        'MegaDescriptor API key is not configured',
-      );
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+      const [url, opts] = mockFetch.mock.calls[0];
+      expect(url).toBe(`${TEST_API_URL}/embed`);
+      expect(opts.method).toBe('POST');
+      expect(opts.body).toBeInstanceOf(FormData);
     });
 
     it('should throw if croppedBuffer is empty', async () => {
@@ -80,20 +55,20 @@ describe('MegaDescriptorClient', () => {
       );
     });
 
-    it('should throw if embedding length is not 512', async () => {
+    it('should throw if embedding length is not 768', async () => {
       const wrongLength = Array.from({ length: 256 }, () => 0.5);
       mockFetch.mockResolvedValueOnce({
         ok: true,
         status: 200,
-        json: async () => wrongLength,
+        json: async () => ({ embedding: wrongLength }),
       });
 
       await expect(client.embed(validBuffer)).rejects.toThrow(
-        'MegaDescriptor returned embedding of length 256, expected 512',
+        'Embedding length 256, expected 768',
       );
     });
 
-    it('should throw on HTTP 503 with service unavailable message', async () => {
+    it('should throw on non-OK HTTP response', async () => {
       mockFetch.mockResolvedValueOnce({
         ok: false,
         status: 503,
@@ -102,20 +77,7 @@ describe('MegaDescriptorClient', () => {
       });
 
       await expect(client.embed(validBuffer)).rejects.toThrow(
-        'MegaDescriptor service temporarily unavailable',
-      );
-    });
-
-    it('should throw on non-OK HTTP responses', async () => {
-      mockFetch.mockResolvedValueOnce({
-        ok: false,
-        status: 401,
-        text: async () => 'Unauthorized',
-        statusText: 'Unauthorized',
-      });
-
-      await expect(client.embed(validBuffer)).rejects.toThrow(
-        'MegaDescriptor API error (HTTP 401): Unauthorized',
+        'Embed request failed (HTTP 503): Model is loading',
       );
     });
 
@@ -123,11 +85,11 @@ describe('MegaDescriptorClient', () => {
       mockFetch.mockRejectedValueOnce(new Error('ECONNREFUSED'));
 
       await expect(client.embed(validBuffer)).rejects.toThrow(
-        'MegaDescriptor service unavailable: ECONNREFUSED',
+        'Inference service unavailable: ECONNREFUSED',
       );
     });
 
-    it('should throw on unexpected response format', async () => {
+    it('should throw when embedding field is missing from response', async () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
         status: 200,
@@ -135,7 +97,7 @@ describe('MegaDescriptorClient', () => {
       });
 
       await expect(client.embed(validBuffer)).rejects.toThrow(
-        'MegaDescriptor returned an unexpected response format',
+        'Embedding length 0, expected 768',
       );
     });
   });

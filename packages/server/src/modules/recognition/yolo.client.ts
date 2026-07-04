@@ -37,7 +37,7 @@ export class YoloClient {
   }
 
   /**
-   * Sends the photo buffer to the Ultralytics YOLO inference endpoint,
+   * Sends the photo buffer to the local YOLO inference endpoint,
    * detects cat(s) in the image, and crops the highest-confidence detection.
    *
    * @param photoBuffer - Raw image buffer (JPEG/PNG)
@@ -66,7 +66,7 @@ export class YoloClient {
   }
 
   /**
-   * Calls the local inference service's /detect endpoint (YOLOv8) and returns
+   * Calls the local inference service's /detect endpoint (YOLOX) and returns
    * the cat detection(s). The service does class filtering + confidence cutoff.
    */
   private async callYoloApi(imageBuffer: Buffer): Promise<YoloDetection[]> {

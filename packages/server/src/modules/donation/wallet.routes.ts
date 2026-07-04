@@ -1,10 +1,15 @@
 import { Router } from 'express';
 import { WalletController } from './wallet.controller';
 import { authMiddleware } from '../../middleware/auth';
+import { financialSecurityMiddleware } from '../../middleware/financialSecurity';
 
 const controller = new WalletController();
 
 export const walletRoutes = Router();
+
+// Apply financial security middleware to all wallet routes
+// (rate limiting, input sanitization, security headers)
+walletRoutes.use(financialSecurityMiddleware);
 
 // Authenticated endpoints
 walletRoutes.get('/balance', authMiddleware, (req, res) => controller.getBalance(req, res));

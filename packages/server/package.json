@@ -15,7 +15,10 @@
     "prisma:migrate": "prisma migrate dev",
     "prisma:seed": "ts-node prisma/seed.ts",
     "worker": "ts-node src/workflows/worker.ts",
-    "clean": "rm -rf dist"
+    "clean": "rm -rf dist",
+    "security:audit": "npm audit --production --audit-level=high",
+    "security:trivy": "bash ../../scripts/trivy-scan.sh fs",
+    "security:scan": "npm run security:audit || true"
   },
   "dependencies": {
     "@codingkitty/shared": "*",

@@ -4,6 +4,7 @@ import helmet from 'helmet';
 import { createServer } from 'http';
 import { Server as SocketIOServer } from 'socket.io';
 import { config } from './config';
+import { gpsResponseGuard } from './middleware/gpsResponseGuard';
 
 import { authRoutes } from './modules/auth/auth.routes';
 import { recognitionRoutes } from './modules/recognition/recognition.routes';
@@ -34,6 +35,9 @@ const io = new SocketIOServer(httpServer, {
 app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
 app.use(cors());
 app.use(express.json());
+
+// GPS Response Guard — strips raw GPS fields from all JSON responses (Req 5.5, 14.2)
+app.use(gpsResponseGuard);
 
 // Health check
 app.get('/health', (_req, res) => {

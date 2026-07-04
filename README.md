@@ -18,7 +18,7 @@ Monorepo with three packages:
 - **Server:** Express, Prisma (PostgreSQL + PostGIS + pgvector), Temporal, Socket.io
 - **Client:** React Native (Expo), react-native-maps
 - **Testing:** Jest + fast-check (property-based testing)
-- **AI/ML:** YOLOv8 (cat detection), MegaDescriptor (re-identification), pgvector (embedding search)
+- **AI/ML:** YOLOX (cat detection), MegaDescriptor (re-identification), pgvector (embedding search)
 
 ## Getting Started
 

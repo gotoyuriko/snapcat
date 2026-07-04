@@ -1,10 +1,15 @@
 import { Router } from 'express';
 import { DonationController } from './donation.controller';
 import { authMiddleware } from '../../middleware/auth';
+import { financialSecurityMiddleware } from '../../middleware/financialSecurity';
 
 const controller = new DonationController();
 
 export const donationRoutes = Router();
+
+// Apply financial security middleware to all donation routes
+// (rate limiting, input sanitization, security headers)
+donationRoutes.use(financialSecurityMiddleware);
 
 // POST /donations — Create a new food donation
 donationRoutes.post('/', authMiddleware, (req, res) => controller.create(req, res));

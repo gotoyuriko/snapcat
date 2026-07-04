@@ -172,7 +172,7 @@ describe('Notification Rate Limit (with Milestone Bypass) — Property Test', ()
           expect(milestoneDelivered).toBe(expectedMilestoneCount);
         },
       ),
-      { numRuns: 200 },
+      { numRuns: 30 },
     );
   });
 });

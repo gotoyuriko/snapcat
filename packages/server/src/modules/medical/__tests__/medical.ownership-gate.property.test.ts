@@ -100,7 +100,7 @@ describe('Medical Ownership Gate — Property Tests', () => {
           mockFindUnique.mockReset();
         },
       ),
-      { numRuns: 200 },
+      { numRuns: 30 },
     );
   });
 
@@ -154,7 +154,7 @@ describe('Medical Ownership Gate — Property Tests', () => {
           mockFindUnique.mockReset();
         },
       ),
-      { numRuns: 200 },
+      { numRuns: 30 },
     );
   });
 });

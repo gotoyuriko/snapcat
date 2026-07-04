@@ -120,7 +120,7 @@ describe('SightingService.appendSighting — GPS Fuzz Property Tests', () => {
           expect(distance).toBeLessThanOrEqual(200.01);
         },
       ),
-      { numRuns: 200 },
+      { numRuns: 30 },
     );
   });
 

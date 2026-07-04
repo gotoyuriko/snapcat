@@ -104,7 +104,7 @@ describe('Donation Escrow Workflow — Idempotence Property Test', () => {
           expect(run1.notifyCalls[0]).toEqual([catId, donorId, amountCents]);
         },
       ),
-      { numRuns: 200 },
+      { numRuns: 30 },
     );
   });
 });

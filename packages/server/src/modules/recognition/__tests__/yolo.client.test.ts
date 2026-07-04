@@ -15,7 +15,7 @@ const mockFetch = jest.fn();
 global.fetch = mockFetch;
 
 describe('YoloClient', () => {
-  const TEST_API_URL = 'https://api.ultralytics.com/v1/predict';
+  const TEST_API_URL = 'http://localhost:8000';
   const TEST_API_KEY = 'test_api_key_123';
   let client: YoloClient;
 
@@ -27,11 +27,11 @@ describe('YoloClient', () => {
   describe('detectCat', () => {
     const imageBuffer = Buffer.from('fake-image-data');
 
-    it('should return { noDetection: true } when YOLO detects no cats', async () => {
+    it('should return { noDetection: true } when inference returns detected=false', async () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
         status: 200,
-        json: async () => ({ data: [] }),
+        json: async () => ({ detected: false }),
       });
 
       const result = await client.detectCat(imageBuffer);
@@ -39,26 +39,11 @@ describe('YoloClient', () => {
       expect(result).toEqual({ noDetection: true });
     });
 
-    it('should return { noDetection: true } when YOLO detects only non-cat objects', async () => {
+    it('should return { noDetection: true } when inference returns no box', async () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
         status: 200,
-        json: async () => ({
-          data: [
-            {
-              class: 0,
-              name: 'person',
-              confidence: 0.95,
-              box: { x1: 10, y1: 10, x2: 100, y2: 100 },
-            },
-            {
-              class: 16,
-              name: 'dog',
-              confidence: 0.88,
-              box: { x1: 200, y1: 200, x2: 300, y2: 300 },
-            },
-          ],
-        }),
+        json: async () => ({ detected: true }),
       });
 
       const result = await client.detectCat(imageBuffer);
@@ -66,19 +51,14 @@ describe('YoloClient', () => {
       expect(result).toEqual({ noDetection: true });
     });
 
-    it('should return { cropped: Buffer } when a cat is detected (by class ID)', async () => {
+    it('should return { cropped: Buffer } when a cat is detected', async () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
         status: 200,
         json: async () => ({
-          data: [
-            {
-              class: CAT_CLASS_ID,
-              name: 'cat',
-              confidence: 0.92,
-              box: { x1: 50, y1: 60, x2: 200, y2: 300 },
-            },
-          ],
+          detected: true,
+          confidence: 0.92,
+          box: { x1: 50, y1: 60, x2: 200, y2: 300 },
         }),
       });
 
@@ -90,107 +70,20 @@ describe('YoloClient', () => {
       }
     });
 
-    it('should return { cropped: Buffer } when a cat is detected (by class name)', async () => {
+    it('should send FormData POST to /detect endpoint', async () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
         status: 200,
-        json: async () => ([
-          {
-            class: 15,
-            name: 'cat',
-            confidence: 0.85,
-            box: { x1: 20, y1: 30, x2: 150, y2: 200 },
-          },
-        ]),
-      });
-
-      const result = await client.detectCat(imageBuffer);
-
-      expect('cropped' in result).toBe(true);
-    });
-
-    it('should pick the highest-confidence cat when multiple cats are detected', async () => {
-      const extractFn = jest.fn().mockReturnThis();
-      const toBufferFn = jest.fn().mockResolvedValue(Buffer.from('cropped'));
-      const sharp = require('sharp');
-      sharp.mockImplementationOnce(() => ({
-        metadata: jest.fn().mockResolvedValue({ width: 640, height: 480 }),
-        extract: extractFn,
-        toBuffer: toBufferFn,
-      })).mockImplementationOnce(() => ({
-        metadata: jest.fn().mockResolvedValue({ width: 640, height: 480 }),
-        extract: extractFn,
-        toBuffer: toBufferFn,
-      }));
-
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        status: 200,
-        json: async () => ({
-          data: [
-            {
-              class: 15,
-              name: 'cat',
-              confidence: 0.60,
-              box: { x1: 0, y1: 0, x2: 50, y2: 50 },
-            },
-            {
-              class: 15,
-              name: 'cat',
-              confidence: 0.95,
-              box: { x1: 100, y1: 100, x2: 300, y2: 400 },
-            },
-            {
-              class: 15,
-              name: 'cat',
-              confidence: 0.70,
-              box: { x1: 400, y1: 400, x2: 500, y2: 500 },
-            },
-          ],
-        }),
-      });
-
-      const result = await client.detectCat(imageBuffer);
-
-      expect('cropped' in result).toBe(true);
-      // Verify that extract was called with the highest-confidence bounding box
-      expect(extractFn).toHaveBeenCalledWith({
-        left: 100,
-        top: 100,
-        width: 200,
-        height: 300,
-      });
-    });
-
-    it('should send correct request to YOLO API', async () => {
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        status: 200,
-        json: async () => ({ data: [] }),
+        json: async () => ({ detected: false }),
       });
 
       await client.detectCat(imageBuffer);
 
-      expect(mockFetch).toHaveBeenCalledWith(TEST_API_URL, {
-        method: 'POST',
-        headers: {
-          'x-api-key': TEST_API_KEY,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: 'yolov8n',
-          image: imageBuffer.toString('base64'),
-          confidence: 0.25,
-        }),
-      });
-    });
-
-    it('should throw if API key is not configured', async () => {
-      const noKeyClient = new YoloClient(TEST_API_URL, '');
-
-      await expect(noKeyClient.detectCat(imageBuffer)).rejects.toThrow(
-        'YOLO API key is not configured'
-      );
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+      const [url, opts] = mockFetch.mock.calls[0];
+      expect(url).toBe(`${TEST_API_URL}/detect`);
+      expect(opts.method).toBe('POST');
+      expect(opts.body).toBeInstanceOf(FormData);
     });
 
     it('should throw on non-OK HTTP response', async () => {
@@ -201,61 +94,68 @@ describe('YoloClient', () => {
       });
 
       await expect(client.detectCat(imageBuffer)).rejects.toThrow(
-        'YOLO API request failed with status 500'
+        'Detect request failed with status 500: Internal Server Error'
       );
     });
 
     it('should throw on network error', async () => {
       mockFetch.mockRejectedValueOnce(new Error('ECONNREFUSED'));
 
-      await expect(client.detectCat(imageBuffer)).rejects.toThrow('ECONNREFUSED');
+      await expect(client.detectCat(imageBuffer)).rejects.toThrow(
+        'Inference service unavailable: ECONNREFUSED'
+      );
     });
   });
 
   describe('detectCats (raw detections)', () => {
     const imageBuffer = Buffer.from('fake-image-data');
 
-    it('should return all cat detections with bounding box info', async () => {
+    it('should return a detection array when detected=true', async () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
         status: 200,
         json: async () => ({
-          data: [
-            {
-              class: 15,
-              name: 'cat',
-              confidence: 0.92,
-              box: { x1: 10, y1: 20, x2: 110, y2: 220 },
-            },
-            {
-              class: 0,
-              name: 'person',
-              confidence: 0.85,
-              box: { x1: 200, y1: 200, x2: 400, y2: 400 },
-            },
-            {
-              class: 15,
-              name: 'cat',
-              confidence: 0.78,
-              box: { x1: 300, y1: 50, x2: 450, y2: 250 },
-            },
-          ],
+          detected: true,
+          confidence: 0.92,
+          box: { x1: 10, y1: 20, x2: 110, y2: 220 },
         }),
       });
 
       const detections = await client.detectCats(imageBuffer);
 
-      expect(detections).toHaveLength(2);
+      expect(detections).toHaveLength(1);
       expect(detections[0]).toEqual({
         confidence: 0.92,
         boundingBox: { x: 10, y: 20, width: 100, height: 200 },
       });
-      expect(detections[1]).toEqual({
-        confidence: 0.78,
-        boundingBox: { x: 300, y: 50, width: 150, height: 200 },
+    });
+
+    it('should return empty array when no detection', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({ detected: false }),
       });
+
+      const detections = await client.detectCats(imageBuffer);
+
+      expect(detections).toHaveLength(0);
+    });
+
+    it('should default confidence to 0 when not provided', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          detected: true,
+          box: { x1: 0, y1: 0, x2: 100, y2: 100 },
+        }),
+      });
+
+      const detections = await client.detectCats(imageBuffer);
+
+      expect(detections).toHaveLength(1);
+      expect(detections[0].confidence).toBe(0);
     });
   });
 });
-
-const CAT_CLASS_ID = 15;

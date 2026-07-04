@@ -7,7 +7,7 @@ import { DocumentStorageService } from './document-storage.service';
 const createMedicalRequestSchema = z.object({
   catId: z.string().uuid('catId must be a valid UUID'),
   type: z.enum(['medical', 'grooming'], {
-    errorMap: () => ({ message: 'type must be "medical" or "grooming"' }),
+    error: 'type must be "medical" or "grooming"',
   }),
   // Requirement 9.4: a reason description is mandatory.
   reason: z.string().trim().min(10, 'reason must be at least 10 characters').max(2000),
