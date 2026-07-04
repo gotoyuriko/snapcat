@@ -67,8 +67,8 @@ export class DonationService {
       // concurrent donation having spent the stock since the check above.
       const updated = await tx.userInventory.updateMany({
         where: {
-          userId: donorId,
-          foodItemId,
+          userId: { equals: donorId },
+          foodItemId: { equals: foodItemId },
           quantity: { gte: quantity },
         },
         data: {
