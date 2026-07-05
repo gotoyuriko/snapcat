@@ -10,8 +10,11 @@ import { CatProfileScreen } from '../screens/CatProfileScreen';
 import { ChatScreen } from '../screens/ChatScreen';
 import { WebARFeedingScreen } from '../screens/WebARFeedingScreen';
 import { ProfileScreen } from '../screens/ProfileScreen';
-import { BadgeCatalogueScreen } from '../screens/BadgeCatalogueScreen';
 import { MedicalRequestScreen } from '../screens/MedicalRequestScreen';
+import { CareRequestsScreen } from '../screens/CareRequestsScreen';
+import { CareRequestDetailScreen } from '../screens/CareRequestDetailScreen';
+import { LevelRewardsScreen } from '../screens/LevelRewardsScreen';
+import { BadgeCatalogueScreen } from '../screens/BadgeCatalogueScreen';
 import { MainTabs } from './MainTabs';
 
 export type RootStackParamList = {
@@ -23,8 +26,11 @@ export type RootStackParamList = {
   Permissions: undefined;
   WebARFeeding: { catId: string };
   Profile: undefined;
-  BadgeCatalogue: undefined;
   MedicalRequest: { catId: string };
+  CareRequests: undefined;
+  CareRequestDetail: { requestId: string };
+  LevelRewards: { catId: string; catName?: string | null; level: number; xp: number };
+  BadgeCatalogue: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -80,14 +86,29 @@ export function RootNavigation() {
               options={{ title: 'Profile' }}
             />
             <Stack.Screen
+              name="MedicalRequest"
+              component={MedicalRequestScreen}
+              options={{ title: 'Request Care' }}
+            />
+            <Stack.Screen
+              name="CareRequests"
+              component={CareRequestsScreen}
+              options={{ title: 'Care Requests' }}
+            />
+            <Stack.Screen
+              name="CareRequestDetail"
+              component={CareRequestDetailScreen}
+              options={{ title: 'Care Request' }}
+            />
+            <Stack.Screen
+              name="LevelRewards"
+              component={LevelRewardsScreen}
+              options={{ title: 'Level Rewards' }}
+            />
+            <Stack.Screen
               name="BadgeCatalogue"
               component={BadgeCatalogueScreen}
               options={{ title: 'Badge Catalogue' }}
-            />
-            <Stack.Screen
-              name="MedicalRequest"
-              component={MedicalRequestScreen}
-              options={{ title: 'Medical Request' }}
             />
           </>
         )}

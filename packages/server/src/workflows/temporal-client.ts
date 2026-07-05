@@ -14,7 +14,9 @@ import {
   partnerAcceptedSignal,
   serviceCompletedSignal,
   documentsResubmittedSignal,
+  ownerChosePartnerSignal,
   StaffDecision,
+  CompletionDocs,
 } from './medical-reimbursement.workflow';
 import { donationEscrowWorkflow } from './donation-escrow.workflow';
 
@@ -76,6 +78,18 @@ export async function signalStaffDecision(
 }
 
 /**
+ * Signal a running workflow that the owner chose a certified partner location.
+ */
+export async function signalOwnerChosePartner(
+  workflowId: string,
+  partnerId: string,
+): Promise<void> {
+  const client = await getTemporalClient();
+  const handle: WorkflowHandle = client.workflow.getHandle(workflowId);
+  await handle.signal(ownerChosePartnerSignal, partnerId);
+}
+
+/**
  * Signal a running workflow that the partner has accepted.
  */
 export async function signalPartnerAccepted(workflowId: string): Promise<void> {
@@ -85,15 +99,15 @@ export async function signalPartnerAccepted(workflowId: string): Promise<void> {
 }
 
 /**
- * Signal a running workflow that service is completed with invoice.
+ * Signal a running workflow that service is completed with invoice + receipt.
  */
 export async function signalServiceCompleted(
   workflowId: string,
-  invoiceUrl: string,
+  docs: CompletionDocs,
 ): Promise<void> {
   const client = await getTemporalClient();
   const handle: WorkflowHandle = client.workflow.getHandle(workflowId);
-  await handle.signal(serviceCompletedSignal, invoiceUrl);
+  await handle.signal(serviceCompletedSignal, docs);
 }
 
 /**
@@ -102,11 +116,11 @@ export async function signalServiceCompleted(
  */
 export async function signalDocumentsResubmitted(
   workflowId: string,
-  invoiceUrl: string,
+  docs: CompletionDocs,
 ): Promise<void> {
   const client = await getTemporalClient();
   const handle: WorkflowHandle = client.workflow.getHandle(workflowId);
-  await handle.signal(documentsResubmittedSignal, invoiceUrl);
+  await handle.signal(documentsResubmittedSignal, docs);
 }
 
 

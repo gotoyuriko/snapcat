@@ -25,13 +25,41 @@ const LEVEL_THRESHOLDS: readonly number[] = [
 
 /** XP awarded per non-donation action (Requirements 6.1, 6.2, 6.4) */
 const ACTION_XP: Record<Exclude<GamificationAction, 'donation'>, number> = {
-  discover_new: 100,
+  // Discovery awards exactly the Lvl3 ownership threshold (16 XP ≙ RM16):
+  // the first discoverer starts at ownership Level 3, and the same 16 XP is
+  // what lands on their global profile XP. 100 XP was deemed too much.
+  discover_new: 16,
   scan: 3,
   medical_reimbursed: 100,
 };
 
 /** Maximum donation XP per user per cat per day (UTC) */
 const DAILY_DONATION_XP_CAP = 200;
+
+/**
+ * Per-level rewards (Requirement 17.11): free food items granted to the
+ * user's inventory when an ownership crosses the level, plus display-only
+ * perks (badges, feature unlocks) shown on the Level Rewards page.
+ */
+export interface LevelReward {
+  level: number;
+  xpRequired: number;
+  items: Array<{ name: string; quantity: number }>;
+  perks: string[];
+}
+
+export const LEVEL_REWARDS: LevelReward[] = [
+  { level: 1, xpRequired: 1, items: [], perks: ['Official Owner status — join the cat\'s leaderboard and community chat'] },
+  { level: 2, xpRequired: 6, items: [{ name: 'Cat Kibble', quantity: 1 }], perks: [] },
+  { level: 3, xpRequired: 16, items: [{ name: 'Cat Kibble', quantity: 1 }], perks: ['Bronze cat badge on your profile'] },
+  { level: 4, xpRequired: 31, items: [{ name: 'Cat Snack', quantity: 1 }], perks: [] },
+  { level: 5, xpRequired: 51, items: [{ name: 'Cat Snack', quantity: 1 }], perks: ['Silver cat badge on your profile'] },
+  { level: 6, xpRequired: 76, items: [{ name: 'Tuna Can', quantity: 1 }], perks: [] },
+  { level: 7, xpRequired: 106, items: [{ name: 'Tuna Can', quantity: 1 }], perks: ['Gold cat badge on your profile', 'Unlocks medical & grooming care requests'] },
+  { level: 8, xpRequired: 141, items: [{ name: 'Cat Snack', quantity: 2 }], perks: [] },
+  { level: 9, xpRequired: 181, items: [{ name: 'Tuna Can', quantity: 2 }], perks: [] },
+  { level: 10, xpRequired: 226, items: [{ name: 'Tuna Can', quantity: 3 }], perks: ['Diamond cat badge — max level reached!'] },
+];
 
 /**
  * Calculates the ownership level for a given cumulative XP value.
@@ -129,6 +157,11 @@ export class GamificationService {
         where: { id: userId },
         data: { xp: { increment: xpToAward } },
       });
+      // The same 16 XP also seeds the ownership ladder — the first
+      // discoverer starts at exactly Level 3. Global milestone badges
+      // (e.g. "Discovered 10 Cats") ride along with the result (Req 18.2).
+      const discoveryResult = await this.updateOwnershipXP(userId, catId, xpToAward);
+      return this.withBadges(discoveryResult, userId, globalBadges);
     }
 
     // 3. Update per-cat Ownership XP and evaluate level promotion

@@ -1,0 +1,4 @@
+-- AlterTable
+ALTER TABLE "Partner" ADD COLUMN     "address" TEXT NOT NULL DEFAULT '',
+ADD COLUMN     "lat" DOUBLE PRECISION,
+ADD COLUMN     "lng" DOUBLE PRECISION;

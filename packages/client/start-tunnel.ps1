@@ -12,11 +12,11 @@ if (-not (Test-Path $cloudflared)) {
 $jobs = @()
 $logs = @()
 
-function Start-Tunnel($targetPort) {
+function Start-Tunnel($targetPort, $targetHost = '127.0.0.1') {
     $log = [System.IO.Path]::GetTempFileName()
     $logs += $log
     $p = Start-Process -FilePath $cloudflared `
-        -ArgumentList "tunnel --no-autoupdate --protocol http2 --retries 5 --url http://127.0.0.1:$targetPort" `
+        -ArgumentList "tunnel --no-autoupdate --protocol http2 --retries 5 --url http://${targetHost}:$targetPort" `
         -RedirectStandardError $log -PassThru -NoNewWindow
     $jobs += $p
 
@@ -42,7 +42,9 @@ function Start-Tunnel($targetPort) {
 
 try {
     Write-Host "Starting Metro tunnel -> port $Port ..."
-    $metroUrl = Start-Tunnel $Port
+    # Metro (expo start --host localhost) binds the IPv6 loopback (::1) on this
+    # machine, so the tunnel must target it explicitly — 127.0.0.1 gets a 502.
+    $metroUrl = Start-Tunnel $Port '[::1]'
     Write-Host "Metro tunnel:   $metroUrl"
 
     Write-Host "Starting API tunnel -> port $ApiPort ..."

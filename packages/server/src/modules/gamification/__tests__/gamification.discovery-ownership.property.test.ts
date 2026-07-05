@@ -13,8 +13,9 @@ import { GamificationAction } from '@codingkitty/shared';
  * A UserCatDiscovery record MAY exist without a corresponding Ownership record.
  */
 
-// --- Arbitrary for non-donation GamificationActions ---
-const nonDonationActionArb: fc.Arbitrary<Exclude<GamificationAction, 'donation'>> = fc.constantFrom(
+// --- Arbitrary for actions that grant per-cat ownership XP ---
+// (discover_new also creates ownership: the first discoverer starts at Lvl3)
+const perCatActionArb: fc.Arbitrary<Exclude<GamificationAction, 'donation'>> = fc.constantFrom(
   'discover_new',
   'scan',
   'medical_reimbursed',
@@ -154,8 +155,8 @@ describe('GamificationService — Discovery–Ownership Referential Integrity Pr
   it('Ownership may be created only when UserCatDiscovery exists, and discovery remains intact', async () => {
     await fc.assert(
       fc.asyncProperty(
-        // Generate a sequence of 1–10 non-donation actions
-        fc.array(nonDonationActionArb, { minLength: 1, maxLength: 10 }),
+        // Sequence of 1–10 per-cat XP actions (all may create ownership).
+        fc.array(perCatActionArb, { minLength: 1, maxLength: 10 }),
         async (actions) => {
           // Set up mock WITH discovery record
           const prisma = createStatefulMockPrisma(true);

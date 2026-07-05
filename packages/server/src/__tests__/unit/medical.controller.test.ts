@@ -215,8 +215,8 @@ describe('GET /medical-requests/partners — listPartners (Req 9.13)', () => {
     await controller.listPartners(req as Request, res as Response);
 
     expect(res.statusCode).toBe(200);
-    expect(res.body.certifiedPartners).toHaveLength(1);
-    expect(res.body.certifiedPartners[0].name).toBe('Happy Paws Vet');
+    expect(res.body.partners).toHaveLength(1);
+    expect(res.body.partners[0].name).toBe('Happy Paws Vet');
   });
 });
 

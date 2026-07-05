@@ -18,6 +18,7 @@ import { useAuth } from '../hooks/useAuth';
 import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
 import { api, resolvePhotoUrl } from '../services/api';
+import { CachedImage } from '../components/CachedImage';
 import { getSocket, connectSocket } from '../services/socket';
 
 /**
@@ -307,10 +308,10 @@ export function ChatScreen() {
           </Text>
         )}
         {item.photoUrl && (
-          <Image
+          <CachedImage
             source={{ uri: resolvePhotoUrl(item.photoUrl) }}
             style={styles.messagePhoto}
-            resizeMode="cover"
+            contentFit="cover"
           />
         )}
         <Text style={styles.messageContent}>{item.content}</Text>

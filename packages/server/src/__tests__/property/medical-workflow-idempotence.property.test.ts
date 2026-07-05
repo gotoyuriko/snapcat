@@ -112,7 +112,7 @@ async function runWorkflowWithScenario(
   partnerId: string,
 ): Promise<{
   status: string;
-  reimbursementCalls: Array<[string, number, string]>;
+  reimbursementCalls: Array<[string, string, number, string]>;
   xpCalls: Array<[string, string, number]>;
 }> {
   // Configure mocks based on scenario
@@ -159,7 +159,10 @@ async function runWorkflowWithScenario(
     simulateSignal('staffDecision', { approved: false });
     await new Promise((r) => setImmediate(r));
   } else {
-    simulateSignal('staffDecision', { approved: true, partnerId });
+    simulateSignal('staffDecision', { approved: true });
+    await new Promise((r) => setImmediate(r));
+    // New lifecycle: the owner chooses the location after approval.
+    simulateSignal('ownerChosePartner', partnerId);
     await new Promise((r) => setImmediate(r));
   }
   switch (scenario.type) {
@@ -214,7 +217,7 @@ async function runWorkflowWithScenario(
 
   // Capture financial call data
   const reimbursementCalls = mockReleaseReimbursement.mock.calls.map(
-    (c: any[]) => [c[0], c[1], c[2]] as [string, number, string],
+    (c: any[]) => [c[0], c[1], c[2], c[3]] as [string, string, number, string],
   );
   const xpCalls = mockAwardXP.mock.calls.map(
     (c: any[]) => [c[0], c[1], c[2]] as [string, string, number],
@@ -312,7 +315,7 @@ describe('Medical Reimbursement Workflow — Idempotence Property Test', () => {
           // Additional: verify that reimbursed paths have exactly one reimbursement
           if (run1.status === 'reimbursed') {
             expect(run1.reimbursementCalls.length).toBe(1);
-            expect(run1.reimbursementCalls[0]).toEqual([catId, 5000, requestId]);
+            expect(run1.reimbursementCalls[0]).toEqual([catId, requesterId, 5000, requestId]);
             expect(run1.xpCalls.length).toBe(1);
             expect(run1.xpCalls[0]).toEqual([requesterId, 'medical_reimbursed', 100]);
           }

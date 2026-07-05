@@ -243,7 +243,8 @@ export class RecognitionService {
       },
     });
 
-    // Award discovery XP: 100 XP to global total and per-cat XP (Req 6.1)
+    // Award discovery XP: 16 XP (RM16-equivalent) to the global total and the
+    // same 16 XP to per-cat ownership — first discoverer starts at Level 3 (Req 6.1).
     const xpResult = await this.gamificationService.recordAction(
       userId,
       newCat.id,

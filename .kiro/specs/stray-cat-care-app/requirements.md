@@ -119,7 +119,7 @@ CodingKitty is a community-driven stray cat care app for Malaysia. Users discove
 
 #### Acceptance Criteria
 
-1. WHEN a User's scan results in discovering a cat for the first time (new Cat registration), THE System SHALL award 100 XP to that User's global total and to their per-cat XP for that Cat.
+1. WHEN a User's scan results in discovering a cat for the first time (new Cat registration), THE System SHALL award 16 XP (the Level 3 ownership threshold, RM16-equivalent) to that User's global total and to their per-cat XP for that Cat, starting the first discoverer at ownership Level 3.
 2. WHEN a User's scan results in re-sighting an existing Cat, THE System SHALL award 3 XP to that User's per-cat XP for that Cat (once per unique daily scan per cat).
 3. WHEN a User donates a food item to a Cat, THE System SHALL award XP equal to the MYR price of the donated item (e.g., 1 RM item = 1 XP, 5 RM item = 5 XP, 10 RM item = 10 XP) to that User's per-cat XP for that Cat, up to a maximum of 200 XP per User per Cat per day from donations.
 4. WHEN a MedicalRequest reaches "reimbursed" status, THE System SHALL award 100 XP to the requesting User's per-cat XP for that Cat.
@@ -173,12 +173,12 @@ CodingKitty is a community-driven stray cat care app for Malaysia. Users discove
 3. WHEN a User below Lvl7 views a Cat Profile, THE System SHALL display the medical/grooming request option as greyed out and locked with a message stating "Available after Level 7".
 4. WHEN a User submits a MedicalRequest, THE System SHALL require the User to provide a reason description and supporting documentation (photos, vet notes).
 5. WHEN a MedicalRequest workflow is started, THE System SHALL route the request to the review team (Staff-Verification) for review.
-6. WHEN Staff-Verification approves a MedicalRequest, THE System SHALL send confirmation to both the requesting User and the assigned Partner (verified clinic/salon), including appointment details.
+6. WHEN Staff-Verification approves a MedicalRequest, THE System SHALL move the request to "awaiting_owner" and notify the requesting User to choose a certified Partner location (filtered to the request type: medical → vet clinics, grooming → salons). WHEN the User chooses a location, THE System SHALL move the request to "pending_review", notify the chosen Partner, and — once the Partner agrees to cooperate — move the request to "in_progress" (date arrangement happens through personal contact outside the app). THE System SHALL record every stage transition in a per-request event trail visible to the User.
 7. WHEN Staff-Verification rejects a MedicalRequest, THE System SHALL update the request status to "rejected" and notify the requesting User with a reason.
 8. WHEN both the User and the Partner confirm the appointment has been completed, THE System SHALL require the Partner to submit an invoice and the User to submit a receipt; THE System SHALL block the request from progressing to "reimbursed" status until both documents are actually submitted. WHEN valid documents are submitted after a request has been previously rejected for documentation reasons, THE System SHALL allow the request status to transition from "rejected" to "reimbursed".
 9. WHEN the review team receives valid documentation from both Partner and User confirming service completion, THE System SHALL update the request status to "reimbursed" and release the reimbursement amount from the pool to the User.
 10. WHEN documentation from the Partner or User is found invalid during verification, THE System SHALL update the request status to "rejected" and notify the requesting User.
-11. WHEN the Partner has not signalled completion within 7 days, THE Temporal_Worker SHALL time out the workflow and update the request status to "timed_out".
+11. WHEN the service has not been completed within 30 days of the Partner agreeing to cooperate, THE Temporal_Worker SHALL time out the workflow and update the request status to "timed_out".
 12. THE System SHALL store MedicalRequest supporting documents in private object storage with signed URL access.
 13. THE System SHALL notify the User of certified Partner locations (verified vet clinics and grooming salons) in the area when they initiate a MedicalRequest; reimbursement SHALL only be processed if the User visits one of these certified Partners.
 

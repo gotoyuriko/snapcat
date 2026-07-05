@@ -18,6 +18,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RouteProp } from '@react-navigation/native';
 import type { RootStackParamList } from '../navigation';
 import { api, ApiError, resolvePhotoUrl } from '../services/api';
+import { CachedImage } from '../components/CachedImage';
 import { FeedCatModal, FeedResult } from '../components/FeedCatModal';
 import { BadgeCelebration, CelebratedBadge } from '../components/BadgeCelebration';
 
@@ -247,12 +248,10 @@ function SightingItem({ sighting }: { sighting: Sighting }) {
   const date = new Date(sighting.timestamp);
   return (
     <View style={styles.sightingItem}>
-      <Image
+      <CachedImage
         source={{ uri: resolvePhotoUrl(sighting.photoUrl) }}
         style={styles.sightingPhoto}
-        onError={(e) =>
-          console.warn('Failed to load sighting photo:', resolvePhotoUrl(sighting.photoUrl), e.nativeEvent.error)
-        }
+        contentFit="cover"
       />
       <View style={styles.sightingInfo}>
         <Text style={styles.sightingDate}>
@@ -524,8 +523,8 @@ export function CatProfileScreen() {
   };
 
   const handleRequestMedical = () => {
-    // Only Lvl7+ owners can trigger medical requests (Req 9.1, 9.3);
-    // the button is greyed out for lower levels.
+    // Only Lvl7+ owners can trigger medical requests (Req 9.1);
+    // the button is greyed out for lower levels (Req 9.3).
     if (profileData?.ownership && profileData.ownership.level >= 7) {
       navigation.navigate('MedicalRequest', { catId });
     }
@@ -603,12 +602,10 @@ export function CatProfileScreen() {
       {/* Cat Photo & Name */}
       <View style={styles.headerSection}>
         {cat.photoUrl ? (
-          <Image
+          <CachedImage
             source={{ uri: resolvePhotoUrl(cat.photoUrl) }}
             style={styles.catPhoto}
-            onError={(e) =>
-              console.warn('Failed to load cat photo:', resolvePhotoUrl(cat.photoUrl), e.nativeEvent.error)
-            }
+            contentFit="cover"
           />
         ) : (
           <View style={styles.catPhotoPlaceholder}>
@@ -672,19 +669,47 @@ export function CatProfileScreen() {
         </Text>
       </View>
 
-      {/* Ownership Level & XP Progress Bar */}
+      {/* Ownership Level & XP Progress Bar — tap to see the full level
+          rewards ladder (passed / current / upcoming tiers). */}
       {/* Req 6.7: accumulated XP always visible; Req 14.3 */}
       {ownership ? (
-        <XPProgressBar
-          ownership={ownership}
-          gain={xpFeedback}
-          onGainDone={() => setXpFeedback(null)}
-        />
+        <TouchableOpacity
+          activeOpacity={0.7}
+          onPress={() =>
+            navigation.navigate('LevelRewards', {
+              catId,
+              catName: cat.name,
+              level: ownership.level,
+              xp: ownership.xp,
+            })
+          }
+          accessibilityLabel="View level rewards"
+          accessibilityRole="button"
+        >
+          <XPProgressBar
+            ownership={ownership}
+            gain={xpFeedback}
+            onGainDone={() => setXpFeedback(null)}
+          />
+        </TouchableOpacity>
       ) : (
-        <View style={styles.xpContainer}>
+        <TouchableOpacity
+          style={styles.xpContainer}
+          activeOpacity={0.7}
+          onPress={() =>
+            navigation.navigate('LevelRewards', {
+              catId,
+              catName: cat.name,
+              level: 0,
+              xp: 0,
+            })
+          }
+          accessibilityLabel="View level rewards"
+          accessibilityRole="button"
+        >
           <Text style={styles.xpLevelText}>Level 0 — Discovered</Text>
-          <Text style={styles.xpValueText}>0 XP</Text>
-        </View>
+          <Text style={styles.xpValueText}>0 XP · Tap to see level rewards</Text>
+        </TouchableOpacity>
       )}
 
       {/* Action Buttons */}
