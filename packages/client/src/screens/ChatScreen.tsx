@@ -100,7 +100,9 @@ export function ChatScreen() {
 
     const handleNewMessage = (message: ChatMessage) => {
       if (message.catId === catId) {
-        setMessages((prev) => [...prev, message]);
+        setMessages((prev) =>
+          prev.some((msg) => msg.id === message.id) ? prev : [...prev, message],
+        );
       }
     };
 
@@ -233,7 +235,9 @@ export function ChatScreen() {
         content: caption,
         photoUrl,
       });
-      setMessages((prev) => [...prev, savedMessage]);
+      setMessages((prev) =>
+        prev.some((msg) => msg.id === savedMessage.id) ? prev : [...prev, savedMessage],
+      );
     } catch (err: any) {
       if (err?.message?.includes('403')) {
         setForbidden(true);
@@ -315,7 +319,7 @@ export function ChatScreen() {
           />
         )}
         <Text style={styles.messageContent}>{item.content}</Text>
-        <Text style={styles.messageTime}>
+        <Text style={[styles.messageTime, isOwnMessage && styles.ownMessageTime]}>
           {new Date(item.createdAt).toLocaleTimeString([], {
             hour: '2-digit',
             minute: '2-digit',
@@ -519,6 +523,9 @@ const styles = StyleSheet.create({
     color: '#999',
     marginTop: 4,
     alignSelf: 'flex-end',
+  },
+  ownMessageTime: {
+    color: 'rgba(255, 255, 255, 0.8)',
   },
   // Input area
   attachButton: {

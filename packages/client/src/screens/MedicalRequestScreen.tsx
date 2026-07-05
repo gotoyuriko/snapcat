@@ -18,6 +18,7 @@ import {
   Alert,
   ActivityIndicator,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RouteProp } from '@react-navigation/native';
@@ -126,6 +127,7 @@ export function MedicalRequestScreen() {
   // Post-submission view: confirmation + certified partner locations (Req 9.13)
   if (created) {
     return (
+      <SafeAreaView style={styles.container} edges={['top']}>
       <ScrollView style={styles.container} contentContainerStyle={styles.content}>
         <Text style={styles.title}>✅ Request Received</Text>
         <Text style={styles.paragraph}>
@@ -168,10 +170,12 @@ export function MedicalRequestScreen() {
           <Text style={styles.submitButtonText}>Done</Text>
         </TouchableOpacity>
       </ScrollView>
+      </SafeAreaView>
     );
   }
 
   return (
+    <SafeAreaView style={styles.container} edges={['top']}>
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <View style={styles.headerRow}>
         <TouchableOpacity onPress={() => navigation.goBack()} accessibilityRole="button">
@@ -254,6 +258,7 @@ export function MedicalRequestScreen() {
         )}
       </TouchableOpacity>
     </ScrollView>
+    </SafeAreaView>
   );
 }
 

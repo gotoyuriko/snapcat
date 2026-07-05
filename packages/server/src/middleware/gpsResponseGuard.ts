@@ -82,6 +82,13 @@ export function stripRawGpsFields(value: unknown): unknown {
     return value.map((item) => stripRawGpsFields(item));
   }
 
+  // Date and other non-plain objects have no own enumerable properties to
+  // walk — recursing into them via Object.entries would silently reconstruct
+  // them as `{}`. Pass them through unchanged.
+  if (value instanceof Date) {
+    return value;
+  }
+
   if (typeof value === 'object' && value !== null) {
     const result: Record<string, unknown> = {};
     for (const [key, val] of Object.entries(value as Record<string, unknown>)) {
