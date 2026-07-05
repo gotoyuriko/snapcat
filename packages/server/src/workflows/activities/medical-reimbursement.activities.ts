@@ -6,50 +6,14 @@ const prisma = new PrismaClient();
 const alertsService = new AlertsService();
 const gamificationService = new GamificationService(prisma, alertsService);
 
-export interface VerifyRequestResult {
-  approved: boolean;
-  partnerId?: string;
-  reason?: string;
-}
-
 export interface VerifyInvoiceResult {
   valid: boolean;
   reason?: string;
 }
 
-/**
- * Verify a medical request via Staff-Verification.
- * Returns approval status and assigned partner.
- *
- * Requirement 9.3: Staff verifies request validity before proceeding.
- */
-export async function verifyRequest(requestId: string): Promise<VerifyRequestResult> {
-  const request = await prisma.medicalRequest.findUnique({
-    where: { id: requestId },
-  });
-
-  if (!request) {
-    return { approved: false, reason: 'Request not found' };
-  }
-
-  // In production, this would integrate with an external staff verification queue.
-  // For now, we check if a partnerId has been assigned (staff approved and assigned partner).
-  if (request.partnerId && request.status === 'verified') {
-    return { approved: true, partnerId: request.partnerId };
-  }
-
-  // If status is still pending, poll or wait for staff action.
-  // In a real system, this activity would block until staff completes review.
-  // Here we check the current DB state.
-  const updatedRequest = await prisma.medicalRequest.findUnique({
-    where: { id: requestId },
-  });
-
-  if (updatedRequest?.status === 'verified' && updatedRequest.partnerId) {
-    return { approved: true, partnerId: updatedRequest.partnerId };
-  }
-
-  return { approved: false, reason: 'Request not approved by staff' };
+export interface ReleaseReimbursementResult {
+  released: boolean;
+  reason?: string;
 }
 
 /**
@@ -80,54 +44,108 @@ export async function updateMedicalRequestStatus(
   requestId: string,
   status: string,
   partnerId?: string,
+  rejectionReason?: string,
+  note?: string,
 ): Promise<void> {
-  const data: { status: string; partnerId?: string } = { status };
+  const data: { status: string; partnerId?: string; rejectionReason?: string } = { status };
   if (partnerId) {
     data.partnerId = partnerId;
+  }
+  if (rejectionReason) {
+    data.rejectionReason = rejectionReason;
   }
 
   await prisma.medicalRequest.update({
     where: { id: requestId },
     data,
   });
+
+  // Stage trail: every transition is recorded so the owner can trace progress.
+  await prisma.medicalRequestEvent.create({
+    data: { requestId, status, note: note ?? '' },
+  });
 }
 
 /**
- * Verify an invoice/receipt submitted by the partner or user.
- * Staff validates the invoice documents.
- *
- * Requirement 9.6: Invoice verification before reimbursement.
+ * Verify the completion documents: partner invoice AND user receipt (Req 9.8).
+ * Both documents must be present for the request to progress to reimbursement.
  */
-export async function verifyInvoice(invoiceUrl: string): Promise<VerifyInvoiceResult> {
-  // In production: staff reviews the invoice via a verification queue
-  // This would check document validity, amount ranges, partner legitimacy, etc.
+export async function verifyInvoice(
+  invoiceUrl: string,
+  receiptUrl?: string,
+): Promise<VerifyInvoiceResult> {
+  // In production: staff reviews the documents via a verification queue
+  // (document validity, amount ranges, partner legitimacy, etc.).
   if (!invoiceUrl || invoiceUrl.trim() === '') {
     return { valid: false, reason: 'No invoice URL provided' };
   }
+  if (receiptUrl !== undefined && receiptUrl.trim() === '') {
+    return { valid: false, reason: 'No receipt URL provided' };
+  }
 
-  // Placeholder: in real implementation, this blocks until staff verifies
   return { valid: true };
 }
 
 /**
- * Release reimbursement funds from the community pool to cover medical costs.
+ * Release reimbursement funds from the cat's community pool to the requester.
  *
- * Requirement 9.7: Funds released after invoice verification.
+ * The pool balance for a cat is the sum of its released donations minus what
+ * has already been reimbursed. The release is transactional and idempotent:
+ * a request that already has `reimbursedAt` set is not paid twice.
+ *
+ * Requirement 9.9: release the reimbursement amount from the pool to the User.
  */
 export async function releaseReimbursement(
   catId: string,
+  requesterId: string,
   amountCents: number,
   requestId: string,
-): Promise<void> {
+): Promise<ReleaseReimbursementResult> {
   if (amountCents <= 0) {
     throw new Error('Reimbursement amount must be positive');
   }
 
-  // In production: debit from the community pool/wallet for this cat
-  // For now, log the operation
-  console.log(
-    `Released ${amountCents} cents for cat ${catId}, request ${requestId}`,
-  );
+  return prisma.$transaction(async (tx) => {
+    const request = await tx.medicalRequest.findUnique({ where: { id: requestId } });
+    if (!request) {
+      throw new Error(`Medical request ${requestId} not found`);
+    }
+    // Idempotence: activity retries must not double-pay.
+    if (request.reimbursedAt) {
+      return { released: true };
+    }
+
+    const [donated, reimbursed] = await Promise.all([
+      tx.donation.aggregate({
+        where: { catId, status: 'released' },
+        _sum: { amountCents: true },
+      }),
+      tx.medicalRequest.aggregate({
+        where: { catId, reimbursedAt: { not: null } },
+        _sum: { amountCents: true },
+      }),
+    ]);
+    const poolBalance =
+      (donated._sum.amountCents ?? 0) - (reimbursed._sum.amountCents ?? 0);
+
+    if (poolBalance < amountCents) {
+      return {
+        released: false,
+        reason: `Community pool for this cat has ${poolBalance} cents, but ${amountCents} cents are needed`,
+      };
+    }
+
+    await tx.medicalRequest.update({
+      where: { id: requestId },
+      data: { amountCents, reimbursedAt: new Date() },
+    });
+    await tx.user.update({
+      where: { id: requesterId },
+      data: { walletBalance: { increment: amountCents } },
+    });
+
+    return { released: true };
+  });
 }
 
 /**

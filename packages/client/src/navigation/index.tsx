@@ -10,6 +10,10 @@ import { CatProfileScreen } from '../screens/CatProfileScreen';
 import { ChatScreen } from '../screens/ChatScreen';
 import { WebARFeedingScreen } from '../screens/WebARFeedingScreen';
 import { ProfileScreen } from '../screens/ProfileScreen';
+import { MedicalRequestScreen } from '../screens/MedicalRequestScreen';
+import { CareRequestsScreen } from '../screens/CareRequestsScreen';
+import { CareRequestDetailScreen } from '../screens/CareRequestDetailScreen';
+import { LevelRewardsScreen } from '../screens/LevelRewardsScreen';
 import { MainTabs } from './MainTabs';
 
 export type RootStackParamList = {
@@ -21,6 +25,10 @@ export type RootStackParamList = {
   Permissions: undefined;
   WebARFeeding: { catId: string };
   Profile: undefined;
+  MedicalRequest: { catId: string };
+  CareRequests: undefined;
+  CareRequestDetail: { requestId: string };
+  LevelRewards: { catId: string; catName?: string | null; level: number; xp: number };
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -74,6 +82,26 @@ export function RootNavigation() {
               name="Profile"
               component={ProfileScreen}
               options={{ title: 'Profile' }}
+            />
+            <Stack.Screen
+              name="MedicalRequest"
+              component={MedicalRequestScreen}
+              options={{ title: 'Request Care' }}
+            />
+            <Stack.Screen
+              name="CareRequests"
+              component={CareRequestsScreen}
+              options={{ title: 'Care Requests' }}
+            />
+            <Stack.Screen
+              name="CareRequestDetail"
+              component={CareRequestDetailScreen}
+              options={{ title: 'Care Request' }}
+            />
+            <Stack.Screen
+              name="LevelRewards"
+              component={LevelRewardsScreen}
+              options={{ title: 'Level Rewards' }}
             />
           </>
         )}

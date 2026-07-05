@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
-import { GamificationService } from './gamification.service';
+import { GamificationService, LEVEL_REWARDS } from './gamification.service';
 
 const prisma = new PrismaClient();
 
@@ -39,6 +39,15 @@ export class GamificationController {
 
       res.status(500).json({ error: message });
     }
+  }
+
+  /**
+   * GET /gamification/level-rewards
+   * The full per-level rewards table (Requirement 17.11) for the Level
+   * Rewards page — thresholds, item grants, and perk descriptions.
+   */
+  async getLevelRewards(_req: Request, res: Response): Promise<void> {
+    res.status(200).json({ rewards: LEVEL_REWARDS });
   }
 
   /**

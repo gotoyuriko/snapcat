@@ -18,3 +18,8 @@ gamificationRoutes.get('/stats', authMiddleware, (req, res) => controller.getUse
 gamificationRoutes.get('/badges', authMiddleware, (req, res) =>
   controller.getUserBadges(req, res),
 );
+
+// GET /gamification/level-rewards — per-level rewards table (Req 17.11).
+gamificationRoutes.get('/level-rewards', authMiddleware, (req, res) =>
+  controller.getLevelRewards(req, res),
+);

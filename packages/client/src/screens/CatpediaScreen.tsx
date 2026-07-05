@@ -15,6 +15,7 @@ import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation';
 import { api, resolvePhotoUrl } from '../services/api';
+import { CachedImage } from '../components/CachedImage';
 import { useLocation } from '../hooks/useLocation';
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
@@ -135,16 +136,10 @@ export function CatpediaScreen() {
           accessibilityRole="button"
         >
           {item.photoUrl ? (
-            <Image
+            <CachedImage
               source={{ uri: resolvePhotoUrl(item.photoUrl) }}
               style={styles.catPhoto}
-              onError={(e) =>
-                console.warn(
-                  `Failed to load cat photo for ${item.name ?? item.id}:`,
-                  resolvePhotoUrl(item.photoUrl),
-                  e.nativeEvent.error
-                )
-              }
+              contentFit="cover"
             />
           ) : (
             <View style={[styles.catPhoto, styles.placeholderPhoto]}>

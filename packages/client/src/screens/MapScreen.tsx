@@ -15,7 +15,8 @@ import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation';
 import { useLocation } from '../hooks/useLocation';
-import { api } from '../services/api';
+import { api, resolvePhotoUrl } from '../services/api';
+import { CachedImage } from '../components/CachedImage';
 
 /** Shape returned by GET /map */
 interface MapPin {
@@ -67,6 +68,9 @@ export function MapScreen() {
   const [pins, setPins] = useState<MapPin[]>([]);
   const [loadingPins, setLoadingPins] = useState(false);
   const [selectedSilhouette, setSelectedSilhouette] = useState<MapPin | null>(null);
+  // Preview bubble for a discovered cat's pin — photo, name and a "View
+  // Profile" button, so tapping a pin never yanks the user to another page.
+  const [selectedPin, setSelectedPin] = useState<MapPin | null>(null);
 
   const mapRef = useRef<MapView>(null);
   // Track the last position where we fetched pins to avoid unnecessary refetches
@@ -180,8 +184,8 @@ export function MapScreen() {
 
   const handleMarkerPress = (pin: MapPin) => {
     if (pin.discovered) {
-      // Navigate to full cat profile
-      navigation.navigate('CatProfile', { catId: pin.catId });
+      // Show the preview bubble; profile only opens via its button
+      setSelectedPin(pin);
     } else {
       // Show approximate area modal — do NOT reveal name or photo
       setSelectedSilhouette(pin);
@@ -218,17 +222,71 @@ export function MapScreen() {
         initialRegion={initialRegion}
         showsUserLocation
         showsMyLocationButton={false}
+        onPress={() => setSelectedPin(null)}
       >
         {pins.map((pin) => (
           <Marker
             key={pin.catId}
             coordinate={{ latitude: pin.approxLat, longitude: pin.approxLng }}
             pinColor={pin.discovered ? '#FF8C00' : '#9E9E9E'}
-            title={pin.discovered ? pin.name : undefined}
-            onPress={() => handleMarkerPress(pin)}
+            onPress={(e) => {
+              // Keep the tap from also reaching the map's onPress (which
+              // closes the preview) and suppress the native callout.
+              e.stopPropagation();
+              handleMarkerPress(pin);
+            }}
           />
         ))}
       </MapView>
+
+      {/* Cat preview bubble — photo, name and View Profile (discovered pins) */}
+      {selectedPin && (
+        <View style={styles.previewCard}>
+          <TouchableOpacity
+            style={styles.previewClose}
+            onPress={() => setSelectedPin(null)}
+            accessibilityLabel="Close preview"
+            accessibilityRole="button"
+          >
+            <Ionicons name="close" size={18} color="#999" />
+          </TouchableOpacity>
+          <View style={styles.previewRow}>
+            {selectedPin.photoUrl ? (
+              <CachedImage
+                source={{ uri: resolvePhotoUrl(selectedPin.photoUrl) }}
+                style={styles.previewPhoto}
+                contentFit="cover"
+              />
+            ) : (
+              <View style={[styles.previewPhoto, styles.previewPhotoFallback]}>
+                <Ionicons name="paw" size={28} color="#fff" />
+              </View>
+            )}
+            <View style={styles.previewInfo}>
+              <Text style={styles.previewName} numberOfLines={1}>
+                {selectedPin.name ?? 'Unnamed cat'}
+              </Text>
+              {selectedPin.areaLabel ? (
+                <Text style={styles.previewArea} numberOfLines={1}>
+                  📍 {selectedPin.areaLabel}
+                </Text>
+              ) : null}
+              <TouchableOpacity
+                style={styles.previewButton}
+                onPress={() => {
+                  const catId = selectedPin.catId;
+                  setSelectedPin(null);
+                  navigation.navigate('CatProfile', { catId });
+                }}
+                accessibilityLabel="View cat profile"
+                accessibilityRole="button"
+              >
+                <Text style={styles.previewButtonText}>View Profile ›</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      )}
 
       {/* Locating overlay — hides the fallback coordinate until we've panned
           to the real GPS fix (or the timeout gives up and reveals the map
@@ -384,6 +442,69 @@ const styles = StyleSheet.create({
     color: '#666',
     textAlign: 'center',
     lineHeight: 20,
+  },
+  previewCard: {
+    position: 'absolute',
+    left: 16,
+    right: 16,
+    bottom: 84,
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 12,
+    elevation: 6,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
+  },
+  previewClose: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    zIndex: 1,
+    padding: 4,
+  },
+  previewRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  previewPhoto: {
+    width: 72,
+    height: 72,
+    borderRadius: 12,
+    backgroundColor: '#eee',
+  },
+  previewPhotoFallback: {
+    backgroundColor: '#FF8C00',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  previewInfo: {
+    flex: 1,
+  },
+  previewName: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#333',
+  },
+  previewArea: {
+    fontSize: 12,
+    color: '#999',
+    marginTop: 2,
+  },
+  previewButton: {
+    alignSelf: 'flex-start',
+    backgroundColor: '#FF8C00',
+    borderRadius: 8,
+    paddingVertical: 6,
+    paddingHorizontal: 14,
+    marginTop: 8,
+  },
+  previewButtonText: {
+    color: '#fff',
+    fontSize: 13,
+    fontWeight: '700',
   },
   modalBackdrop: {
     flex: 1,

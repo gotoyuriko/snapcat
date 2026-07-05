@@ -7,15 +7,25 @@ import { DocumentStorageService } from './document-storage.service';
 const createMedicalRequestSchema = z.object({
   catId: z.string().uuid('catId must be a valid UUID'),
   type: z.enum(['medical', 'grooming'], {
-    error: 'type must be "medical" or "grooming"',
+    message: 'type must be "medical" or "grooming"',
   }),
   // Requirement 9.4: a reason description is mandatory.
   reason: z.string().trim().min(10, 'reason must be at least 10 characters').max(2000),
 });
 
-const approveSchema = z.object({
+// Owner's location choice (awaiting_owner stage).
+const choosePartnerSchema = z.object({
   partnerId: z.string().uuid(),
-  appointmentDetails: z.string().max(500).optional(),
+});
+
+// Requirement 9.7: rejection must carry a reason for the user.
+const rejectSchema = z.object({
+  reason: z.string().trim().min(5, 'reason must be at least 5 characters').max(500),
+});
+
+// Requirement 9.9: the invoiced amount to reimburse from the pool (MYR cents).
+const completeSchema = z.object({
+  amountCents: z.coerce.number().int().positive().max(1_000_000),
 });
 
 /**
@@ -78,8 +88,9 @@ export class MedicalController {
       });
 
       // Requirement 9.13: tell the requester which certified partners qualify
-      // for reimbursement.
-      const certifiedPartners = await this.service.getCertifiedPartners();
+      // for reimbursement — filtered to the request type (medical → vets,
+      // grooming → salons).
+      const certifiedPartners = await this.service.getCertifiedPartners(type);
 
       res.status(201).json({ ...medicalRequest, certifiedPartners });
     } catch (error) {
@@ -88,29 +99,137 @@ export class MedicalController {
     }
   }
 
-  /** POST /:id/approve (staff) — approve + assign certified partner (Req 9.5, 9.6). */
-  async approve(req: Request, res: Response): Promise<void> {
-    const parsed = approveSchema.safeParse(req.body);
+  /** GET /mine — the authenticated user's own requests, for the profile page. */
+  async listMine(req: Request, res: Response): Promise<void> {
+    try {
+      const requests = await this.service.getMyRequests(req.user!.userId);
+      res.status(200).json({ requests });
+    } catch (err) {
+      this.handleError(err, res);
+    }
+  }
+
+  /** GET /partners?type=medical|grooming — certified partners for a request type. */
+  async listPartners(req: Request, res: Response): Promise<void> {
+    try {
+      const type = typeof req.query.type === 'string' ? req.query.type : undefined;
+      const partners = await this.service.getCertifiedPartners(type);
+      res.status(200).json({ partners });
+    } catch (err) {
+      this.handleError(err, res);
+    }
+  }
+
+  /**
+   * POST /:id/receipt — the OWNER submits their payment receipt, the invoiced
+   * amount, and in-clinic photos after the visit (Req 9.8, user side).
+   * ?resubmission=true resubmits after a documentation rejection.
+   */
+  async submitReceipt(req: Request, res: Response): Promise<void> {
+    const files = req.files as { [field: string]: Express.Multer.File[] } | undefined;
+    const receipt = files?.receipt?.[0];
+    if (!receipt) {
+      res.status(400).json({ error: 'A receipt file is required' });
+      return;
+    }
+    const parsed = completeSchema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({
+        error: 'A positive invoiced amountCents is required',
+        details: parsed.error.issues,
+      });
+      return;
+    }
+    try {
+      const photos = (files?.photos ?? []).map((p) => ({
+        buffer: p.buffer,
+        originalName: p.originalname,
+      }));
+      const result = await this.service.submitUserReceipt(
+        req.params.id,
+        req.user!.userId,
+        { buffer: receipt.buffer, originalName: receipt.originalname },
+        photos,
+        parsed.data.amountCents,
+        req.query.resubmission === 'true',
+      );
+      res.status(200).json({ status: 'receipt submitted', ...result });
+    } catch (err) {
+      this.handleError(err, res);
+    }
+  }
+
+  /**
+   * POST /:id/invoice (staff) — the PARTNER's proof, entered on the clinic's
+   * behalf (Req 9.8, partner side). Triggers verification once the user's
+   * receipt is also in.
+   */
+  async submitInvoice(req: Request, res: Response): Promise<void> {
+    const files = req.files as { [field: string]: Express.Multer.File[] } | undefined;
+    const invoice = files?.invoice?.[0];
+    if (!invoice) {
+      res.status(400).json({ error: 'An invoice file is required' });
+      return;
+    }
+    try {
+      const result = await this.service.submitPartnerInvoice(
+        req.params.id,
+        { buffer: invoice.buffer, originalName: invoice.originalname },
+        req.query.resubmission === 'true',
+      );
+      res.status(200).json({ status: 'invoice submitted', ...result });
+    } catch (err) {
+      this.handleError(err, res);
+    }
+  }
+
+  /** GET /:id — one request with its full stage trail (requester only). */
+  async getDetail(req: Request, res: Response): Promise<void> {
+    try {
+      const request = await this.service.getRequestDetail(req.params.id, req.user!.userId);
+      res.status(200).json(request);
+    } catch (err) {
+      this.handleError(err, res);
+    }
+  }
+
+  /**
+   * POST /:id/choose-partner — the owner picks the certified location
+   * (awaiting_owner → pending_review).
+   */
+  async choosePartner(req: Request, res: Response): Promise<void> {
+    const parsed = choosePartnerSchema.safeParse(req.body);
     if (!parsed.success) {
       res.status(400).json({ error: 'Validation failed', details: parsed.error.issues });
       return;
     }
     try {
-      await this.service.approveRequest(
-        req.params.id,
-        parsed.data.partnerId,
-        parsed.data.appointmentDetails,
-      );
+      await this.service.choosePartner(req.params.id, req.user!.userId, parsed.data.partnerId);
+      res.status(200).json({ status: 'location choice signalled' });
+    } catch (err) {
+      this.handleError(err, res);
+    }
+  }
+
+  /** POST /:id/approve (staff) — approve; owner then chooses the location (Req 9.5). */
+  async approve(req: Request, res: Response): Promise<void> {
+    try {
+      await this.service.approveRequest(req.params.id);
       res.status(200).json({ status: 'approval signalled' });
     } catch (err) {
       this.handleError(err, res);
     }
   }
 
-  /** POST /:id/reject (staff) — reject the request (Req 9.7). */
+  /** POST /:id/reject (staff) — reject the request with a reason (Req 9.7). */
   async reject(req: Request, res: Response): Promise<void> {
+    const parsed = rejectSchema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: 'Validation failed', details: parsed.error.issues });
+      return;
+    }
     try {
-      await this.service.rejectRequest(req.params.id);
+      await this.service.rejectRequest(req.params.id, parsed.data.reason);
       res.status(200).json({ status: 'rejection signalled' });
     } catch (err) {
       this.handleError(err, res);
@@ -143,12 +262,27 @@ export class MedicalController {
       });
       return;
     }
+    // Req 9.9: the invoiced amount drives how much is released from the pool.
+    const parsed = completeSchema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({
+        error: 'A positive invoiced amountCents is required',
+        details: parsed.error.issues,
+      });
+      return;
+    }
     try {
+      const photos = (files?.photos ?? []).map((p) => ({
+        buffer: p.buffer,
+        originalName: p.originalname,
+      }));
       const urls = await this.service.submitCompletionDocuments(
         req.params.id,
         { buffer: invoice.buffer, originalName: invoice.originalname },
         { buffer: receipt.buffer, originalName: receipt.originalname },
         req.query.resubmission === 'true',
+        parsed.data.amountCents,
+        photos,
       );
       res.status(200).json({ status: 'completion documents submitted', ...urls });
     } catch (err) {
@@ -185,7 +319,13 @@ export class MedicalController {
       return;
     }
     const message = err instanceof Error ? err.message : 'Internal server error';
-    if (message === 'Partner not found or not certified') {
+    const badRequestMessages = [
+      'Partner not found or not certified',
+      'Request is not awaiting a location choice',
+      'Medical requests must use a certified vet clinic',
+      'Grooming requests must use a certified grooming salon',
+    ];
+    if (badRequestMessages.includes(message)) {
       res.status(400).json({ error: message });
       return;
     }

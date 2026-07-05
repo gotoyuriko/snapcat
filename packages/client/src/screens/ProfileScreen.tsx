@@ -6,7 +6,6 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   ScrollView,
-  Image,
   Modal,
   TextInput,
   Alert,
@@ -14,8 +13,11 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { RootStackParamList } from '../navigation';
 import { useAuth } from '../hooks/useAuth';
-import { api } from '../services/api';
+import { api, resolvePhotoUrl } from '../services/api';
+import { CatBadge } from '../components/CatBadge';
 
 interface UserStats {
   userId: string;
@@ -40,13 +42,6 @@ interface Badge {
   catPhotoUrl?: string | null;
 }
 
-const TIER_COLORS: Record<string, string> = {
-  bronze: '#CD7F32',
-  silver: '#9EA7AD',
-  gold: '#D4A017',
-  diamond: '#4FC3F7',
-};
-
 interface InventoryEntry {
   foodItemId: string;
   name: string;
@@ -63,7 +58,7 @@ interface DonationRecord {
 }
 
 export function ProfileScreen() {
-  const navigation = useNavigation();
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const logout = useAuth((s) => s.logout);
 
   const [stats, setStats] = useState<UserStats | null>(null);
@@ -157,6 +152,11 @@ export function ProfileScreen() {
     }
   }, []);
 
+  // Care Requests — dedicated page with stage timelines (Requirement 9)
+  const openCareRequests = useCallback(() => {
+    navigation.navigate('CareRequests');
+  }, [navigation]);
+
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
@@ -234,22 +234,16 @@ export function ProfileScreen() {
               <View style={styles.badgeRow}>
                 {badges.map((badge) => (
                   <View key={badge.id} style={styles.badgeItem}>
-                    <View
-                      style={[
-                        styles.badgeCircle,
-                        badge.tier ? { backgroundColor: TIER_COLORS[badge.tier] } : null,
-                      ]}
-                    >
-                      {badge.type === 'per-cat' && badge.catPhotoUrl ? (
-                        <Image source={{ uri: badge.catPhotoUrl }} style={styles.badgeCatPhoto} />
-                      ) : (
-                        <Ionicons
-                          name={badge.icon as keyof typeof Ionicons.glyphMap}
-                          size={24}
-                          color="#fff"
-                        />
-                      )}
-                    </View>
+                    <CatBadge
+                      size={60}
+                      tier={badge.tier ?? 'bronze'}
+                      photoUrl={
+                        badge.type === 'per-cat' && badge.catPhotoUrl
+                          ? resolvePhotoUrl(badge.catPhotoUrl)
+                          : undefined
+                      }
+                      icon={badge.icon as keyof typeof Ionicons.glyphMap}
+                    />
                     <Text style={styles.badgeTitle} numberOfLines={2}>
                       {badge.title}
                     </Text>
@@ -297,6 +291,17 @@ export function ProfileScreen() {
             >
               <Ionicons name="receipt-outline" size={20} color="#FF8C00" />
               <Text style={styles.menuLabel}>Donation History</Text>
+              <Ionicons name="chevron-forward" size={18} color="#ccc" />
+            </TouchableOpacity>
+            <View style={styles.menuDivider} />
+            <TouchableOpacity
+              style={styles.menuRow}
+              onPress={openCareRequests}
+              accessibilityLabel="Care requests"
+              accessibilityRole="button"
+            >
+              <Ionicons name="medkit-outline" size={20} color="#FF8C00" />
+              <Text style={styles.menuLabel}>Care Requests</Text>
               <Ionicons name="chevron-forward" size={18} color="#ccc" />
             </TouchableOpacity>
           </View>
@@ -554,22 +559,8 @@ const styles = StyleSheet.create({
     marginRight: 8,
     marginBottom: 8,
   },
-  badgeCircle: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: '#FF8C00',
-    alignItems: 'center',
-    justifyContent: 'center',
-    overflow: 'hidden',
-    marginBottom: 4,
-  },
-  badgeCatPhoto: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-  },
   badgeTitle: {
+    marginTop: 4,
     fontSize: 10,
     color: '#666',
     textAlign: 'center',

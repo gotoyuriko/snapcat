@@ -167,16 +167,44 @@ model MedicalRequest {
   type        String   @default("medical") // 'medical' | 'grooming'
   // Requirement 9.4: requester must explain why care is needed.
   reason      String   @default("")
-  status      String   @default("pending") // 'pending' | 'verified' | 'in_progress' | 'reimbursed' | 'rejected'
+  // Lifecycle: 'pending' (staff review) | 'awaiting_owner' (owner picks a
+  // location) | 'pending_review' (staff arrange with the chosen clinic) |
+  // 'in_progress' (service window, 30 days) | 'reimbursed' | 'rejected' | 'timed_out'
+  status      String   @default("pending")
   partnerId   String?
   workflowId  String   @default("")
   documents   String[] @default([])
+  // Requirement 9.7: staff-supplied reason shown to the user on rejection.
+  rejectionReason String?
+  // Requirement 9.9: amount released from the community pool, and when.
+  amountCents  Int       @default(0)
+  reimbursedAt DateTime?
+  // Two-sided completion proof (Req 9.8): the user's receipt (submitted
+  // in-app with photos) and the partner's invoice/proof (staff-entered).
+  // Verification is signalled once BOTH are present.
+  receiptUrl  String?
+  invoiceUrl  String?
   createdAt   DateTime @default(now())
 
   // Relations
   cat       Cat      @relation(fields: [catId], references: [id])
   requester User     @relation(fields: [requesterId], references: [id])
   partner   Partner? @relation(fields: [partnerId], references: [id])
+  events    MedicalRequestEvent[]
+}
+
+// Stage-transition trail for a MedicalRequest so the owner can trace every
+// status change of their request (who/when/why is captured in `note`).
+model MedicalRequestEvent {
+  id        String   @id @default(uuid())
+  requestId String
+  status    String
+  note      String   @default("")
+  createdAt DateTime @default(now())
+
+  request MedicalRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+
+  @@index([requestId, createdAt])
 }
 
 model ChatMessage {
@@ -200,6 +228,10 @@ model Partner {
   type         String  @default("vet") // 'vet' | 'salon'
   contactEmail String
   verified     Boolean @default(false)
+  // Requirement 9.13: partner locations "in the area" shown to the requester.
+  address      String  @default("")
+  lat          Float?
+  lng          Float?
 
   // Relations
   medicalRequests MedicalRequest[]

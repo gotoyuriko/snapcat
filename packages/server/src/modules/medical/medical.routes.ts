@@ -38,6 +38,37 @@ medicalRoutes.post(
   (req, res) => controller.create(req, res),
 );
 
+// GET /api/medical-requests/mine — the caller's own requests (profile page)
+medicalRoutes.get('/mine', authMiddleware, (req, res) => controller.listMine(req, res));
+
+// GET /api/medical-requests/partners?type= — certified partners (filtered by request type)
+medicalRoutes.get('/partners', authMiddleware, (req, res) => controller.listPartners(req, res));
+
+// Owner picks the certified location (awaiting_owner → pending_review)
+medicalRoutes.post('/:id/choose-partner', authMiddleware, (req, res) =>
+  controller.choosePartner(req, res),
+);
+
+// Owner's completion proof: receipt + invoiced amount + in-clinic photos
+medicalRoutes.post(
+  '/:id/receipt',
+  authMiddleware,
+  upload.fields([
+    { name: 'receipt', maxCount: 1 },
+    { name: 'photos', maxCount: 3 },
+  ]),
+  (req, res) => controller.submitReceipt(req, res),
+);
+
+// Partner's completion proof (invoice), entered by staff on the clinic's behalf
+medicalRoutes.post(
+  '/:id/invoice',
+  authMiddleware,
+  staffGuard,
+  upload.fields([{ name: 'invoice', maxCount: 1 }]),
+  (req, res) => controller.submitInvoice(req, res),
+);
+
 // GET /api/medical-requests/documents/:fileName — signed private document access (Req 9.12).
 // No auth middleware: access control is the HMAC signature + expiry themselves.
 medicalRoutes.get('/documents/:fileName', (req, res) => controller.serveDocument(req, res));
@@ -55,7 +86,11 @@ medicalRoutes.post('/:id/partner-accept', authMiddleware, staffGuard, (req, res)
   controller.partnerAccept(req, res),
 );
 
-// Completion documents: partner invoice + user receipt, both mandatory (Req 9.8).
+// GET /api/medical-requests/:id — request detail with the full stage trail
+medicalRoutes.get('/:id', authMiddleware, (req, res) => controller.getDetail(req, res));
+
+// Completion documents: partner invoice/proof + user receipt (both mandatory,
+// Req 9.8) plus optional in-clinic photos from the user.
 // ?resubmission=true resubmits after a documentation rejection.
 medicalRoutes.post(
   '/:id/complete',
@@ -63,6 +98,7 @@ medicalRoutes.post(
   upload.fields([
     { name: 'invoice', maxCount: 1 },
     { name: 'receipt', maxCount: 1 },
+    { name: 'photos', maxCount: 3 },
   ]),
   (req, res) => controller.complete(req, res),
 );

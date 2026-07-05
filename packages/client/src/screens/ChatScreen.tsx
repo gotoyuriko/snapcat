@@ -16,6 +16,7 @@ import { useRoute, RouteProp } from '@react-navigation/native';
 import { RootStackParamList } from '../navigation';
 import { useAuth } from '../hooks/useAuth';
 import { api, resolvePhotoUrl } from '../services/api';
+import { CachedImage } from '../components/CachedImage';
 import { getSocket, connectSocket } from '../services/socket';
 
 /**
@@ -258,10 +259,10 @@ export function ChatScreen() {
           </Text>
         )}
         {item.photoUrl && (
-          <Image
+          <CachedImage
             source={{ uri: resolvePhotoUrl(item.photoUrl) }}
             style={styles.messagePhoto}
-            resizeMode="cover"
+            contentFit="cover"
           />
         )}
         <Text style={styles.messageContent}>{item.content}</Text>

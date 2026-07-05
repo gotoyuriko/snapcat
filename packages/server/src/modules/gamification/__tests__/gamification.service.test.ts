@@ -92,33 +92,36 @@ describe('GamificationService', () => {
   });
 
   describe('recordAction - discover_new', () => {
-    it('awards 100 XP for discovering a new cat', async () => {
+    it('awards 16 XP globally for discovering a new cat', async () => {
       prisma.userCatDiscovery.findUnique.mockResolvedValue({ userId: 'u1', catId: 'c1' });
       prisma.ownership.findUnique.mockResolvedValue(null);
-      prisma.ownership.create.mockResolvedValue({ userId: 'u1', catId: 'c1', xp: 100, level: 10 });
+      prisma.ownership.create.mockResolvedValue({ userId: 'u1', catId: 'c1', xp: 16, level: 3 });
 
       const result = await service.recordAction('u1', 'c1', 'discover_new');
 
-      expect(result.xpAwarded).toBe(100);
+      expect(result.xpAwarded).toBe(16);
       expect(prisma.user.update).toHaveBeenCalledWith({
         where: { id: 'u1' },
-        data: { xp: { increment: 100 } },
+        data: { xp: { increment: 16 } },
       });
     });
 
-    it('creates Ownership record when UserCatDiscovery exists', async () => {
+    it('starts the first discoverer at ownership Level 3 (16 XP = Lvl3 threshold)', async () => {
       prisma.userCatDiscovery.findUnique.mockResolvedValue({ userId: 'u1', catId: 'c1' });
       prisma.ownership.findUnique.mockResolvedValue(null);
-      prisma.ownership.create.mockResolvedValue({ userId: 'u1', catId: 'c1', xp: 100, level: 10 });
+      prisma.ownership.create.mockResolvedValue({ userId: 'u1', catId: 'c1', xp: 16, level: 3 });
 
-      await service.recordAction('u1', 'c1', 'discover_new');
+      const result = await service.recordAction('u1', 'c1', 'discover_new');
 
+      expect(result.xpAwarded).toBe(16);
+      expect(result.newLevel).toBe(3);
+      expect(result.levelUp).toBe(true);
       expect(prisma.ownership.create).toHaveBeenCalledWith({
         data: expect.objectContaining({
           userId: 'u1',
           catId: 'c1',
-          xp: 100,
-          level: calculateLevel(100),
+          xp: 16,
+          level: 3,
         }),
       });
     });
@@ -129,7 +132,7 @@ describe('GamificationService', () => {
 
       const result = await service.recordAction('u1', 'c1', 'discover_new');
 
-      expect(result.xpAwarded).toBe(100);
+      expect(result.xpAwarded).toBe(16);
       expect(result.newLevel).toBe(0);
       expect(prisma.ownership.create).not.toHaveBeenCalled();
     });

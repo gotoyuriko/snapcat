@@ -12,21 +12,38 @@ const mockFindUnique = jest.fn();
 const mockFindFirst = jest.fn();
 const mockFindMany = jest.fn();
 const mockUpdate = jest.fn();
+const mockDonationAggregate = jest.fn();
+const mockRequestAggregate = jest.fn();
+const mockUserUpdate = jest.fn();
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const prismaMock: any = {
+  medicalRequest: {
+    findUnique: mockFindUnique,
+    findFirst: mockFindFirst,
+    update: mockUpdate,
+    aggregate: mockRequestAggregate,
+  },
+  medicalRequestEvent: {
+    create: jest.fn().mockResolvedValue({}),
+  },
+  partner: {
+    findUnique: mockFindUnique,
+  },
+  ownership: {
+    findMany: mockFindMany,
+  },
+  donation: {
+    aggregate: mockDonationAggregate,
+  },
+  user: {
+    update: mockUserUpdate,
+  },
+  $transaction: jest.fn(async (fn: (tx: unknown) => Promise<unknown>) => fn(prismaMock)),
+};
 
 jest.mock('@prisma/client', () => ({
-  PrismaClient: jest.fn().mockImplementation(() => ({
-    medicalRequest: {
-      findUnique: mockFindUnique,
-      findFirst: mockFindFirst,
-      update: mockUpdate,
-    },
-    partner: {
-      findUnique: mockFindUnique,
-    },
-    ownership: {
-      findMany: mockFindMany,
-    },
-  })),
+  PrismaClient: jest.fn().mockImplementation(() => prismaMock),
 }));
 
 // Mock GamificationService
@@ -46,7 +63,6 @@ jest.mock('../../modules/alerts/alerts.service', () => ({
 }));
 
 import {
-  verifyRequest,
   notifyPartner,
   updateMedicalRequestStatus,
   verifyInvoice,
@@ -58,42 +74,6 @@ import {
 describe('Medical Reimbursement Activities', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-  });
-
-  describe('verifyRequest', () => {
-    it('should return approved=true when request is verified with partner (Req 9.3)', async () => {
-      mockFindUnique.mockResolvedValue({
-        id: 'req-1',
-        status: 'verified',
-        partnerId: 'partner-1',
-      });
-
-      const result = await verifyRequest('req-1');
-
-      expect(result.approved).toBe(true);
-      expect(result.partnerId).toBe('partner-1');
-    });
-
-    it('should return approved=false when request not found', async () => {
-      mockFindUnique.mockResolvedValue(null);
-
-      const result = await verifyRequest('non-existent');
-
-      expect(result.approved).toBe(false);
-      expect(result.reason).toBe('Request not found');
-    });
-
-    it('should return approved=false when request is still pending', async () => {
-      mockFindUnique.mockResolvedValue({
-        id: 'req-1',
-        status: 'pending',
-        partnerId: null,
-      });
-
-      const result = await verifyRequest('req-1');
-
-      expect(result.approved).toBe(false);
-    });
   });
 
   describe('notifyPartner', () => {
@@ -148,25 +128,73 @@ describe('Medical Reimbursement Activities', () => {
       expect(result.reason).toBe('No invoice URL provided');
     });
 
-    it('should return valid=true for non-empty invoice URL', async () => {
-      const result = await verifyInvoice('https://example.com/invoice.pdf');
+    it('should return valid=false for empty receipt URL (Req 9.8)', async () => {
+      const result = await verifyInvoice('https://example.com/invoice.pdf', '');
+
+      expect(result.valid).toBe(false);
+      expect(result.reason).toBe('No receipt URL provided');
+    });
+
+    it('should return valid=true for non-empty invoice and receipt URLs', async () => {
+      const result = await verifyInvoice(
+        'https://example.com/invoice.pdf',
+        'https://example.com/receipt.pdf',
+      );
 
       expect(result.valid).toBe(true);
     });
   });
 
-  describe('releaseReimbursement', () => {
-    it('should throw for non-positive amount (Req 9.7)', async () => {
-      await expect(releaseReimbursement('cat-1', 0, 'req-1')).rejects.toThrow(
+  describe('releaseReimbursement (Req 9.9)', () => {
+    it('should throw for non-positive amount', async () => {
+      await expect(releaseReimbursement('cat-1', 'user-1', 0, 'req-1')).rejects.toThrow(
         'Reimbursement amount must be positive',
       );
-      await expect(releaseReimbursement('cat-1', -100, 'req-1')).rejects.toThrow(
+      await expect(releaseReimbursement('cat-1', 'user-1', -100, 'req-1')).rejects.toThrow(
         'Reimbursement amount must be positive',
       );
     });
 
-    it('should succeed for positive amount', async () => {
-      await expect(releaseReimbursement('cat-1', 5000, 'req-1')).resolves.not.toThrow();
+    it('should debit the pool and credit the requester wallet when funds suffice', async () => {
+      mockFindUnique.mockResolvedValue({ id: 'req-1', reimbursedAt: null });
+      mockDonationAggregate.mockResolvedValue({ _sum: { amountCents: 10000 } });
+      mockRequestAggregate.mockResolvedValue({ _sum: { amountCents: 2000 } });
+      mockUpdate.mockResolvedValue({});
+      mockUserUpdate.mockResolvedValue({});
+
+      const result = await releaseReimbursement('cat-1', 'user-1', 5000, 'req-1');
+
+      expect(result.released).toBe(true);
+      expect(mockUpdate).toHaveBeenCalledWith({
+        where: { id: 'req-1' },
+        data: { amountCents: 5000, reimbursedAt: expect.any(Date) },
+      });
+      expect(mockUserUpdate).toHaveBeenCalledWith({
+        where: { id: 'user-1' },
+        data: { walletBalance: { increment: 5000 } },
+      });
+    });
+
+    it('should refuse release when pool balance is insufficient', async () => {
+      mockFindUnique.mockResolvedValue({ id: 'req-1', reimbursedAt: null });
+      mockDonationAggregate.mockResolvedValue({ _sum: { amountCents: 3000 } });
+      mockRequestAggregate.mockResolvedValue({ _sum: { amountCents: 0 } });
+
+      const result = await releaseReimbursement('cat-1', 'user-1', 5000, 'req-1');
+
+      expect(result.released).toBe(false);
+      expect(mockUserUpdate).not.toHaveBeenCalled();
+      expect(mockUpdate).not.toHaveBeenCalled();
+    });
+
+    it('should be idempotent — an already-reimbursed request is not paid twice', async () => {
+      mockFindUnique.mockResolvedValue({ id: 'req-1', reimbursedAt: new Date() });
+
+      const result = await releaseReimbursement('cat-1', 'user-1', 5000, 'req-1');
+
+      expect(result.released).toBe(true);
+      expect(mockUserUpdate).not.toHaveBeenCalled();
+      expect(mockUpdate).not.toHaveBeenCalled();
     });
   });
 
