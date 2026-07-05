@@ -84,11 +84,29 @@ pkill -9 -f 'ts-node src/workflows/worker.ts' 2>/dev/null || true
 pkill -9 -f 'expo start' 2>/dev/null || true
 sleep 1
 
-# Best-effort LAN IP detection (Linux, macOS, WSL2).
-LAN_IP="$(hostname -I 2>/dev/null | awk '{print $1}')"
-[[ -z "$LAN_IP" ]] && LAN_IP="$(ipconfig getifaddr en0 2>/dev/null)"
-[[ -z "$LAN_IP" ]] && LAN_IP="$(ip -4 addr show scope global 2>/dev/null | grep -oP '(?<=inet\s)\d+(\.\d+){3}' | head -1)"
-[[ -z "$LAN_IP" ]] && die "Could not auto-detect your LAN IP. Find it manually (ipconfig/ifconfig) and run:\n  EXPO_PUBLIC_API_URL=http://<YOUR-IP>:3000 npx expo start   (from packages/client)"
+# Best-effort LAN IP detection (Windows Git Bash, Linux, macOS, WSL2).
+LAN_IP=""
+case "$(uname -s)" in
+  MINGW*|MSYS*|CYGWIN*)
+    # Windows Git Bash: `ipconfig getifaddr` is a macOS command — Windows'
+    # ipconfig would dump its usage text to stdout and poison $LAN_IP.
+    # Ask PowerShell for the first real IPv4 (skip loopback + link-local).
+    LAN_IP="$(powershell.exe -NoProfile -Command \
+      "(Get-NetIPAddress -AddressFamily IPv4 | Where-Object { \$_.IPAddress -ne '127.0.0.1' -and \$_.IPAddress -notlike '169.254.*' -and \$_.InterfaceAlias -notmatch 'Loopback|vEthernet|WSL' } | Select-Object -First 1).IPAddress" \
+      2>/dev/null | tr -d '\r' | head -1)"
+    ;;
+  Darwin)
+    LAN_IP="$(ipconfig getifaddr en0 2>/dev/null)"
+    ;;
+  *)
+    LAN_IP="$(hostname -I 2>/dev/null | awk '{print $1}')"
+    [[ -z "$LAN_IP" ]] && LAN_IP="$(ip -4 addr show scope global 2>/dev/null | grep -oP '(?<=inet\s)\d+(\.\d+){3}' | head -1)"
+    ;;
+esac
+# Sanity check: must look like an IPv4 address, not error text.
+[[ "$LAN_IP" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]] || LAN_IP=""
+[[ -z "$LAN_IP" ]] && die "Could not auto-detect your LAN IP. Find it manually (ipconfig/ifconfig) and run:
+  EXPO_PUBLIC_API_URL=http://<YOUR-IP>:3000 npx expo start   (from packages/client)"
 ok "Detected LAN IP: $LAN_IP"
 
 say "Starting API server..."
