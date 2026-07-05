@@ -4,6 +4,8 @@
 
 SnapCat is a community-driven stray cat care platform for Malaysia. Stray cats appear as silhouettes on a live map — walk up, scan one with your camera, and a two-stage AI pipeline (YOLO detection + MegaDescriptor re-identification) either recognises a known cat or registers a new one. Caring for cats builds a per-cat contribution ladder that unlocks community features as you level up.
 
+> **Naming note:** the app and all user-facing branding are **SnapCat**; internal identifiers (npm packages `@codingkitty/*`, Docker container names, the Expo slug) keep the original `codingkitty` working title to avoid breaking the workspace — they never appear on screen.
+
 ## Demo
 
 <!-- TODO: add a 2–3 min demo video link here -->
@@ -82,7 +84,9 @@ Monorepo with three packages:
 ./setup.sh
 ```
 
-One command does everything: checks prerequisites, installs dependencies, starts Docker services, applies migrations, seeds base data, and launches the API server, Temporal worker, and the mobile app. It prints the `exp://` URL to open in Expo Go when done. Stop everything with `./stop.sh`.
+One command does everything: stops any previous run, checks prerequisites, installs dependencies, starts Docker services, applies migrations, seeds base data, and launches the API server, Temporal worker, and the mobile app. It prints the `exp://` URL to open in Expo Go when done. Stop everything with `./stop.sh`.
+
+Both scripts are fully Windows/Git Bash compatible: LAN-IP detection and process cleanup fall back to PowerShell there (Git Bash ships neither `hostname -I` nor `pkill`). Re-running `./setup.sh` is always safe — it cleans up the previous run first, which also prevents the Windows Prisma file-lock error (see Troubleshooting).
 
 On Windows without Git Bash, follow the manual steps below instead.
 
@@ -138,7 +142,7 @@ Register an account in the app first, then see **[docs/DEMO-GUIDE.md](docs/DEMO-
 Hard-won lessons from our own demo setups — check here before debugging from scratch.
 
 ### `npm install` / `prisma generate` fails with `EPERM: operation not permitted, rename '...query_engine-windows.dll.node...'`
-The API server or Temporal worker is still running and holds the Prisma engine DLL (Windows locks in-use files). **Always stop the stack before installing or migrating**:
+The API server or Temporal worker is still running and holds the Prisma engine DLL (Windows locks in-use files). `./setup.sh` now stops the previous run automatically before installing, so simply re-running it usually resolves this. If installing manually, **always stop the stack first**:
 ```bash
 ./stop.sh          # or Ctrl+C every terminal running dev/worker/expo
 npm install        # now succeeds
