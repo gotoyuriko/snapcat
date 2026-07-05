@@ -102,7 +102,7 @@ describe('SightingService — New sighting notifications (Req 12.4)', () => {
 
     // The ownership query excludes the reporter via { userId: { not: reporterId } }
     expect(mockPrisma.ownership.findMany).toHaveBeenCalledWith({
-      where: { catId: 'cat-1', level: { gte: 1 }, userId: { not: 'reporter-99' } },
+      where: { catId: 'cat-1', level: { gte: 1 }, revokedAt: null, userId: { not: 'reporter-99' } },
       select: { userId: true },
     });
   });

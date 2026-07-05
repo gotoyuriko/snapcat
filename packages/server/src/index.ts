@@ -21,6 +21,7 @@ import { foodItemRoutes } from './modules/donation/food-item.routes';
 import { donationRoutes } from './modules/donation/donation.routes';
 import { leaderboardRoutes } from './modules/leaderboard/leaderboard.routes';
 import { gamificationRoutes } from './modules/gamification/gamification.routes';
+import { startInactivityJob } from './modules/gamification/inactivity.service';
 
 const app = express();
 const httpServer = createServer(app);
@@ -63,6 +64,9 @@ app.use('/api/gamification', gamificationRoutes);
 // Socket.io setup — Initialize chat gateway
 const chatGateway = new ChatGateway(io);
 chatGateway.initialize();
+
+// Requirement 16.6: daily batch job that warns and revokes inactive owners.
+startInactivityJob();
 
 const PORT = config.port || 3000;
 

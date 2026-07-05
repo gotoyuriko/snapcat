@@ -14,6 +14,8 @@ const checkoutSchema = z.object({
       }),
     )
     .min(1),
+  // Optional discount coupon to redeem (Requirement 17.12).
+  couponId: z.string().uuid().optional(),
 });
 
 /** Zod schema for webhook payload validation */
@@ -62,15 +64,18 @@ export class CheckoutController {
         return;
       }
 
-      const { intentId, paymentUrl, totalCents, items } = await this.checkoutService.createCheckout(
-        userId,
-        parsed.data.items,
-      );
+      const { intentId, paymentUrl, totalCents, discountCents, items } =
+        await this.checkoutService.createCheckout(
+          userId,
+          parsed.data.items,
+          parsed.data.couponId,
+        );
 
       res.status(200).json({
         intentId,
         paymentUrl,
         totalMyr: totalCents / 100,
+        discountMyr: discountCents / 100,
         items: items.map((item) => ({
           foodItemId: item.foodItemId,
           name: item.name,
@@ -81,8 +86,13 @@ export class CheckoutController {
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Internal server error';
 
-      if (message === 'Food item not found') {
+      if (message === 'Food item not found' || message === 'Coupon not found') {
         res.status(404).json({ error: message });
+        return;
+      }
+      if (message.startsWith('Coupon')) {
+        // Coupon already used / expired / below minimum purchase (Req 17.12)
+        res.status(400).json({ error: message });
         return;
       }
 

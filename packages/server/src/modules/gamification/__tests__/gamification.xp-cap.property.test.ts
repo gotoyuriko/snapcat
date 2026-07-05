@@ -20,6 +20,7 @@ function createStatefulMockPrisma() {
       update: jest.fn().mockResolvedValue({}),
     },
     ownership: {
+      updateMany: jest.fn().mockResolvedValue({ count: 0 }),
       findUnique: jest.fn().mockResolvedValue({ userId: 'u1', catId: 'c1', xp: 50, level: 4 }),
       create: jest.fn(),
       update: jest.fn().mockResolvedValue({}),

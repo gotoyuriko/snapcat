@@ -5,20 +5,24 @@ import { MedicalController } from '../../modules/medical/medical.controller';
 jest.mock('../../modules/medical/medical.service', () => {
   const mockCreateRequest = jest.fn();
   const mockGetCertifiedPartners = jest.fn();
+  const mockGetUserRequestsForCat = jest.fn();
   return {
     MedicalService: jest.fn().mockImplementation(() => ({
       createRequest: mockCreateRequest,
       getCertifiedPartners: mockGetCertifiedPartners,
+      getUserRequestsForCat: mockGetUserRequestsForCat,
     })),
     MedicalRequestNotFoundError: class MedicalRequestNotFoundError extends Error {},
     __mockCreateRequest: mockCreateRequest,
     __mockGetCertifiedPartners: mockGetCertifiedPartners,
+    __mockGetUserRequestsForCat: mockGetUserRequestsForCat,
   };
 });
 
 const {
   __mockCreateRequest: mockCreateRequest,
   __mockGetCertifiedPartners: mockGetCertifiedPartners,
+  __mockGetUserRequestsForCat: mockGetUserRequestsForCat,
 } = jest.requireMock('../../modules/medical/medical.service');
 
 const VALID_REASON = 'The cat has a visibly injured left hind leg.';
@@ -196,5 +200,39 @@ describe('MedicalController', () => {
       expect(res.statusCode).toBe(500);
       expect(res.body.error).toBe('Internal server error');
     });
+  });
+});
+
+describe('GET /medical-requests/partners — listPartners (Req 9.13)', () => {
+  it('returns the certified partner list', async () => {
+    mockGetCertifiedPartners.mockResolvedValue([
+      { id: 'p1', name: 'Happy Paws Vet', type: 'vet', contactEmail: 'hi@paws.my' },
+    ]);
+    const controller = new MedicalController();
+    const req = createMockReq();
+    const res = createMockRes();
+
+    await controller.listPartners(req as Request, res as Response);
+
+    expect(res.statusCode).toBe(200);
+    expect(res.body.certifiedPartners).toHaveLength(1);
+    expect(res.body.certifiedPartners[0].name).toBe('Happy Paws Vet');
+  });
+});
+
+describe('GET /medical-requests/cat/:catId/mine — myRequests', () => {
+  it("returns the requester's own requests for the cat", async () => {
+    mockGetUserRequestsForCat.mockResolvedValue([
+      { id: 'r1', type: 'medical', reason: 'Injured leg', status: 'pending', createdAt: new Date(), partner: null },
+    ]);
+    const controller = new MedicalController();
+    const req = createMockReq({ params: { catId: 'cat-1' } as any });
+    const res = createMockRes();
+
+    await controller.myRequests(req as Request, res as Response);
+
+    expect(res.statusCode).toBe(200);
+    expect(mockGetUserRequestsForCat).toHaveBeenCalledWith('user-1', 'cat-1');
+    expect(res.body.requests).toHaveLength(1);
   });
 });

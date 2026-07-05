@@ -11,6 +11,7 @@ function createMockPrisma() {
       findMany: jest.fn().mockResolvedValue([]),
     },
     ownership: {
+      updateMany: jest.fn().mockResolvedValue({ count: 0 }),
       findUnique: jest.fn().mockResolvedValue(null),
       create: jest.fn(),
       update: jest.fn(),

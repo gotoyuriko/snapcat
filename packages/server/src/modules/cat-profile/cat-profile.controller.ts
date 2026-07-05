@@ -2,12 +2,15 @@ import { Request, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
 import { z } from 'zod';
 import { SightingService } from '../sighting/sighting.service';
+import { validateCatName } from './cat-name.moderation';
 
 const prisma = new PrismaClient();
 const sightingService = new SightingService();
 
+// Length and content rules are enforced by validateCatName (Req 19.2–19.5);
+// this schema only ensures a string was submitted.
 const renameSchema = z.object({
-  name: z.string().trim().min(1, 'Name is required').max(50, 'Name must be 50 characters or fewer'),
+  name: z.string(),
 });
 
 // Mirrors the client's XP thresholds (CatProfileScreen LEVEL_THRESHOLDS).
@@ -59,6 +62,9 @@ export class CatProfileController {
           ? { level: ownership.level, xp: ownership.xp, nextLevelXp: nextLevelXp(ownership.level) }
           : null,
         discovered: discovery !== null,
+        // Req 19.7: only the first discoverer may name/rename the cat — the
+        // client uses this to show or hide the name edit control.
+        isFirstDiscoverer: cat.firstDiscovererId === userId,
         sightings: sightings.map((s) => ({
           id: s.id,
           timestamp: s.timestamp.toISOString(),
@@ -80,10 +86,11 @@ export class CatProfileController {
   }
 
   /**
-   * PATCH /api/cats/:catId — rename a cat. Any user who has discovered the
-   * cat may rename it (same gate as "Feed Cat": Lvl0+ discovered, Req 14.4);
-   * naming isn't tied to Ownership, which only exists once a user has fed
-   * the cat at least once.
+   * PATCH /api/cats/:catId — set or rename a cat's name.
+   * Requirement 19.7: only the first discoverer may name the cat (at initial
+   * registration) or rename it later; everyone else gets 403.
+   * Requirement 19.1–19.6: the name passes content moderation before being
+   * stored — invalid names are rejected and never persisted.
    */
   async updateName(req: Request, res: Response): Promise<void> {
     try {
@@ -96,17 +103,25 @@ export class CatProfileController {
         return;
       }
 
-      const discovery = await prisma.userCatDiscovery.findUnique({
-        where: { userId_catId: { userId, catId } },
-      });
-      if (!discovery) {
-        res.status(403).json({ error: 'You must discover this cat before naming it' });
+      const existing = await prisma.cat.findUnique({ where: { id: catId } });
+      if (!existing) {
+        res.status(404).json({ error: 'Cat not found' });
+        return;
+      }
+      if (existing.firstDiscovererId !== userId) {
+        res.status(403).json({ error: 'Only the first discoverer may name this cat' });
+        return;
+      }
+
+      const validation = validateCatName(parsed.data.name);
+      if (!validation.valid) {
+        res.status(400).json({ error: validation.reason });
         return;
       }
 
       const cat = await prisma.cat.update({
         where: { id: catId },
-        data: { name: parsed.data.name },
+        data: { name: validation.name },
       });
 
       res.status(200).json({ id: cat.id, name: cat.name });

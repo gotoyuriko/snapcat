@@ -145,18 +145,17 @@ Implement the CodingKitty modular monolith (Node.js/TypeScript backend + React N
     - **Property 6: Temporal workflow idempotence**
     - **Validates: Requirements 9.1, 14.4**
 
-- [x] 12. Donation / Wallet Module & Temporal Workflow
-  - [x] 12.1 Implement wallet top-up flow:
-    - `POST /wallet/topup`: call security scanner (Aikido if free tier available, otherwise skip) → create payment intent via SANDBOX gateway → return payment URL.
-    - `POST /wallet/webhook`: validate signature → credit walletBalance in integer MYR cents.
-    - _Requirements: 10.1, 10.2, 10.8, 14.1, 14.5_
-  - [x] 12.2 Implement food item catalogue (`GET /food-items`) and purchase endpoint (`POST /food-items/purchase`):
-    - Purchase deducts wallet; increments UserInventory quantity.
-    - Reject if walletBalance < item price.
+- [x] 12. Donation / Checkout Module & Temporal Workflow
+  - _Reworked 2026-07-05 per updated Requirement 10: the in-app wallet was removed in favour of direct checkout (commit `feat(donation): replace in-app wallet with direct checkout`)._
+  - [x] 12.1 Implement direct checkout flow (`POST /checkout`):
+    - Server-side priced cart intent → SANDBOX payment gateway URL for the exact total (no wallet).
+    - Webhook validates signature → idempotent fulfillment credits UserInventory.
+    - _Requirements: 10.1, 10.2, 10.3, 10.9, 14.1, 14.5_
+  - [x] 12.2 Implement food item catalogue (`GET /food-items`); purchasing lives under `/checkout`.
     - _Requirements: 10.3, 10.4, 10.5_
-  - [x] 12.3 Write property test: for any sequence of purchase and donation operations, walletBalance never goes below zero.
-    - **Property 4: Wallet balance non-negativity**
-    - **Validates: Requirements 10.3, 10.4, 10.5**
+  - [x] 12.3 Write property test: checkout fulfillment is idempotent and credits exactly the purchased quantities.
+    - **Property 4 (reworked): Checkout fulfillment correctness**
+    - **Validates: Requirements 10.2, 10.3**
   - [x] 12.4 Implement food donation endpoint (`POST /donations`):
     - Deduct item from UserInventory; create Donation record; start Temporal `DonationEscrow` workflow.
     - Reject if item quantity = 0; do NOT create a Donation record or persist any record for rejected transactions.
@@ -258,7 +257,7 @@ Implement the CodingKitty modular monolith (Node.js/TypeScript backend + React N
 - [x] 16.12 Requirement 8 fixes — real-time parity for REST chat sends:
     - REST-persisted chat messages (e.g. scan-photo shares) now broadcast to the cat's socket room via `broadcastChatMessage`, so online owners see them without reloading (Req 8.3 parity).
     - Socket `send_message` accepts an optional validated `photoUrl` (same own-photo-route restriction as REST).
-    - Remaining gap (Req 8.5, partial): no general in-chat image picker/upload — only scanned photos can be shared; would need expo-image-picker + a chat upload endpoint.
+    - (Resolved by task 24.1: general in-chat image picker/upload shipped.)
     - _Requirements: 8.3, 8.5_
 
 - [x] 16.13 Requirement 9 completion — medical request lifecycle:
@@ -267,7 +266,7 @@ Implement the CodingKitty modular monolith (Node.js/TypeScript backend + React N
     - MedicalRequest.reason column (migration) + create now requires a reason (min 10 chars) and ≥1 supporting document (Req 9.4).
     - GET /documents/:fileName serves signed private documents (HMAC + expiry + path-traversal guard) — signed URLs previously 404'd (Req 9.12).
     - Create response includes certified partner list (Req 9.13).
-    - Note: partner-accept/complete use staff/requester auth — partners have no login; client UI for the medical flow remains unimplemented (button navigates nowhere).
+    - Note: partner-accept/complete use staff/requester auth — partners have no login; client UI for the medical flow shipped in task 24.2.
     - _Requirements: 9.4, 9.5, 9.6, 9.7, 9.8, 9.12, 9.13_
 
 - [x] 17. Checkpoint — Client screens integrated
@@ -287,6 +286,46 @@ Implement the CodingKitty modular monolith (Node.js/TypeScript backend + React N
 - [x] 19. Final checkpoint — All tests pass
   - Run full test suite (unit + property + integration). Verify Temporal workflows with Temporal dev server. Confirm security scanning passes on payment surface.
   - Ask the user if questions arise.
+
+- [x] 20. Inactivity & Ownership Revocation (Requirement 16)
+  - [x] 20.1 Track per-cat owner activity: add `lastActiveAt`, `revokedAt`, `inactivityWarnedAt` to Ownership (migration); refresh `lastActiveAt` (and clear the warning flag) on donation and daily scan actions.
+    - _Requirements: 16.1_
+  - [x] 20.2 Enforce revocation on owner privileges: revoked owners are treated as non-owners by the chat gate, medical request gate, and owner notification fan-outs; historical level is retained.
+    - _Requirements: 16.2, 16.3_
+  - [x] 20.3 Daily batch job: warn owners 30 days before the 8-month threshold (push), revoke owners past the threshold (push + `revokedAt`).
+    - _Requirements: 16.1, 16.5, 16.6_
+  - [x] 20.4 Restore on re-scan: a confirmed scan of the cat by a revoked owner clears `revokedAt`, restoring the previously attained level and all privileges without re-earning XP.
+    - _Requirements: 16.4_
+  - [x] 20.5 Tests: revocation threshold boundary (8 months), 30-day warning window, privilege gates for revoked owners, restore-on-rescan.
+    - _Requirements: 16.1–16.6_
+
+- [x] 21. Level Rewards engine (Requirement 17)
+  - [x] 21.1 Reward granting on level-up: discount coupons (Lvl2: RM3 off min RM10; Lvl8: RM10 off min RM30), free inventory items (Lvl4 kibble, Lvl6 snack, Lvl9 tuna can), Lvl10 staff notification for the engraved keychain. Coupon table with single-use + 30-day expiry.
+    - _Requirements: 17.2, 17.4, 17.6, 17.8, 17.9, 17.10, 17.12_
+  - [x] 21.2 Coupon redemption at checkout: apply an unexpired, unused coupon meeting the minimum purchase; mark used atomically with fulfillment.
+    - _Requirements: 17.2, 17.8, 17.12_
+  - [x] 21.3 Surface rewards: wire the existing "My Rewards" profile menu to real granted rewards and active coupons.
+    - _Requirements: 17.11_
+
+- [x] 22. Cat name content moderation (Requirement 19)
+  - [x] 22.1 Name validator: length 2–30, reject only-special-chars/numbers/whitespace, blocklist with leetspeak variants covering Malay, English, Chinese, Tamil profanity.
+    - _Requirements: 19.1–19.6_
+  - [x] 22.2 Enforce on registration and rename: only the first discoverer may set/rename (moderated); staff override/rename endpoint for reported names.
+    - _Requirements: 19.7, 19.8_
+
+- [x] 23. Badges polish (Requirement 18 gaps)
+  - [x] 23.1 Badge-earned push notification and in-app congratulatory animation.
+    - _Requirements: 18.2_
+  - [x] 23.2 Badge catalogue screen: all available badges, unlock criteria, current progress.
+    - _Requirements: 18.6_
+
+- [x] 24. Remaining client gaps
+  - [x] 24.1 General image sharing in community chat (image picker + chat upload endpoint) — currently only scanned photos can be shared.
+    - _Requirements: 8.5_
+  - [x] 24.2 Medical/grooming request client UI (the Lvl7+ profile button currently navigates nowhere).
+    - _Requirements: 9.1, 9.3, 9.4, 9.13_
+  - [x] 24.3 Cosmetic spec alignment: Catpedia filter labels "Stray"/"Pet" (spec 7.2) vs current "Discovered"/"Owned"; donation screen shows item count where spec 10.4 asks for total credit value in MYR.
+    - _Requirements: 7.2, 10.4_
 
 ---
 

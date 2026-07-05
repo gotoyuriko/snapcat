@@ -22,3 +22,4 @@ export interface GamificationModule {
 export { GamificationService, calculateLevel } from './gamification.service';
 export { GamificationController } from './gamification.controller';
 export { gamificationRoutes } from './gamification.routes';
+export { InactivityService, startInactivityJob } from './inactivity.service';

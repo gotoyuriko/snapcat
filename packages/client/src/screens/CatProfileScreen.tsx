@@ -19,6 +19,7 @@ import type { RouteProp } from '@react-navigation/native';
 import type { RootStackParamList } from '../navigation';
 import { api, ApiError, resolvePhotoUrl } from '../services/api';
 import { FeedCatModal, FeedResult } from '../components/FeedCatModal';
+import { BadgeCelebration, CelebratedBadge } from '../components/BadgeCelebration';
 
 // --- Types ---
 
@@ -65,6 +66,8 @@ interface CatProfileData {
   cat: CatProfile;
   ownership: OwnershipInfo | null;
   discovered: boolean;
+  /** Req 19.7: only the first discoverer may name/rename the cat. */
+  isFirstDiscoverer: boolean;
   sightings: Sighting[];
   chatTeaser: ChatTeaser[];
 }
@@ -381,6 +384,8 @@ export function CatProfileScreen() {
   const [feedModalVisible, setFeedModalVisible] = useState(false);
   // seq keys the popup so every feed remounts it and replays the animation
   const [xpFeedback, setXpFeedback] = useState<(FeedResult & { seq: number }) | null>(null);
+  // Requirement 18.2: badges earned by the latest donation, shown as a celebration overlay.
+  const [celebratedBadges, setCelebratedBadges] = useState<CelebratedBadge[]>([]);
   const feedSeqRef = useRef(0);
 
   /** Fetch without toggling the full-screen spinner (for silent refreshes). */
@@ -452,6 +457,10 @@ export function CatProfileScreen() {
           };
         });
       }
+      // Requirement 18.2: congratulatory animation for newly earned badges.
+      if (result.badgesEarned?.length) {
+        setCelebratedBadges(result.badgesEarned);
+      }
       // Reconcile with the server (leaderboard, ownership, sightings).
       loadProfile();
     },
@@ -515,11 +524,10 @@ export function CatProfileScreen() {
   };
 
   const handleRequestMedical = () => {
-    // Only Lvl7+ owners can trigger medical requests
-    // The button is greyed out for lower levels — this is just the action handler
+    // Only Lvl7+ owners can trigger medical requests (Req 9.1, 9.3);
+    // the button is greyed out for lower levels.
     if (profileData?.ownership && profileData.ownership.level >= 7) {
-      // Navigate to medical request flow (not yet implemented)
-      // For now, this would be handled by a dedicated screen
+      navigation.navigate('MedicalRequest', { catId });
     }
   };
 
@@ -642,7 +650,8 @@ export function CatProfileScreen() {
               <Text style={styles.nameCancelButtonText}>Cancel</Text>
             </TouchableOpacity>
           </View>
-        ) : (
+        ) : profileData.isFirstDiscoverer ? (
+          // Req 19.7: only the first discoverer may name/rename the cat
           <TouchableOpacity
             style={styles.nameRow}
             onPress={startEditName}
@@ -652,6 +661,8 @@ export function CatProfileScreen() {
             <Text style={styles.catName}>{cat.name ?? 'Unnamed Cat'}</Text>
             <Text style={styles.nameEditIcon}>✏️</Text>
           </TouchableOpacity>
+        ) : (
+          <Text style={styles.catName}>{cat.name ?? 'Unnamed Cat'}</Text>
         )}
         {cat.description && (
           <Text style={styles.catDescription}>{cat.description}</Text>
@@ -760,6 +771,11 @@ export function CatProfileScreen() {
       onClose={() => setFeedModalVisible(false)}
       onSuccess={handleFeedSuccess}
     />
+
+    {/* Badge-earned congratulatory animation (Req 18.2) */}
+    {celebratedBadges.length > 0 && (
+      <BadgeCelebration badges={celebratedBadges} onDone={() => setCelebratedBadges([])} />
+    )}
     </SafeAreaView>
   );
 }

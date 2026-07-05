@@ -72,7 +72,7 @@ describe('Donation Escrow Activities', () => {
       await notifyOwners(catId, donorId, amountCents);
 
       expect(mockOwnershipFindMany).toHaveBeenCalledWith({
-        where: { catId, level: { gte: 1 } },
+        where: { catId, level: { gte: 1 }, revokedAt: null },
         select: { userId: true },
       });
       expect(mockNotify).toHaveBeenCalledTimes(2);

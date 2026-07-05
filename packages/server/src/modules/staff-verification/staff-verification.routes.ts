@@ -24,3 +24,6 @@ staffVerificationRoutes.patch('/partners/:id/verify', (req, res) => controller.v
 
 // PATCH /api/staff/partners/:id/revoke — Set verified=false (immediate effect)
 staffVerificationRoutes.patch('/partners/:id/revoke', (req, res) => controller.revokePartner(req, res));
+
+// PATCH /api/staff/cats/:catId/name — staff override for reported cat names (Req 19.8)
+staffVerificationRoutes.patch('/cats/:catId/name', (req, res) => controller.renameCat(req, res));

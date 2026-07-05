@@ -15,6 +15,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRoute, RouteProp } from '@react-navigation/native';
 import { RootStackParamList } from '../navigation';
 import { useAuth } from '../hooks/useAuth';
+import * as ImagePicker from 'expo-image-picker';
+import { Ionicons } from '@expo/vector-icons';
 import { api, resolvePhotoUrl } from '../services/api';
 import { getSocket, connectSocket } from '../services/socket';
 
@@ -195,6 +197,53 @@ export function ChatScreen() {
     }
   }, [inputText, sending, catId, userId]);
 
+  // Requirement 8.5: pick an image from the library, upload it, and send it
+  // as a chat message (any typed text becomes the caption).
+  const handleAttachImage = useCallback(async () => {
+    if (sending) return;
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) {
+      setError('Photo library permission is required to share images');
+      return;
+    }
+    const picked = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      quality: 0.7,
+    });
+    if (picked.canceled || picked.assets.length === 0) return;
+
+    const asset = picked.assets[0];
+    setSending(true);
+    try {
+      const form = new FormData();
+      form.append('photo', {
+        uri: asset.uri,
+        name: asset.fileName ?? 'photo.jpg',
+        type: asset.mimeType ?? 'image/jpeg',
+      } as unknown as Blob);
+      const { photoUrl } = await api.postForm<{ photoUrl: string }>(
+        `/cats/${catId}/photos`,
+        form,
+      );
+
+      const caption = inputText.trim();
+      setInputText('');
+      const savedMessage = await api.post<ChatMessage>(`/cats/${catId}/messages`, {
+        content: caption,
+        photoUrl,
+      });
+      setMessages((prev) => [...prev, savedMessage]);
+    } catch (err: any) {
+      if (err?.message?.includes('403')) {
+        setForbidden(true);
+      } else {
+        setError('Failed to share the image');
+      }
+    } finally {
+      setSending(false);
+    }
+  }, [sending, catId, inputText]);
+
   // Scroll to bottom on new messages
   useEffect(() => {
     if (messages.length > 0 && flatListRef.current) {
@@ -295,6 +344,16 @@ export function ChatScreen() {
         }
       />
       <View style={styles.inputContainer}>
+        {/* Image sharing (Req 8.5) */}
+        <TouchableOpacity
+          style={styles.attachButton}
+          onPress={handleAttachImage}
+          disabled={sending}
+          accessibilityLabel="Share an image"
+          accessibilityRole="button"
+        >
+          <Ionicons name="image-outline" size={24} color={sending ? '#BBB' : '#FF8C00'} />
+        </TouchableOpacity>
         <TextInput
           style={styles.textInput}
           value={inputText}
@@ -461,6 +520,11 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-end',
   },
   // Input area
+  attachButton: {
+    padding: 6,
+    marginRight: 6,
+    alignSelf: 'center',
+  },
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'flex-end',

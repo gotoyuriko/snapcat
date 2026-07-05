@@ -10,6 +10,8 @@ import { CatProfileScreen } from '../screens/CatProfileScreen';
 import { ChatScreen } from '../screens/ChatScreen';
 import { WebARFeedingScreen } from '../screens/WebARFeedingScreen';
 import { ProfileScreen } from '../screens/ProfileScreen';
+import { BadgeCatalogueScreen } from '../screens/BadgeCatalogueScreen';
+import { MedicalRequestScreen } from '../screens/MedicalRequestScreen';
 import { MainTabs } from './MainTabs';
 
 export type RootStackParamList = {
@@ -21,6 +23,8 @@ export type RootStackParamList = {
   Permissions: undefined;
   WebARFeeding: { catId: string };
   Profile: undefined;
+  BadgeCatalogue: undefined;
+  MedicalRequest: { catId: string };
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -74,6 +78,16 @@ export function RootNavigation() {
               name="Profile"
               component={ProfileScreen}
               options={{ title: 'Profile' }}
+            />
+            <Stack.Screen
+              name="BadgeCatalogue"
+              component={BadgeCatalogueScreen}
+              options={{ title: 'Badge Catalogue' }}
+            />
+            <Stack.Screen
+              name="MedicalRequest"
+              component={MedicalRequestScreen}
+              options={{ title: 'Medical Request' }}
             />
           </>
         )}

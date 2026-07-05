@@ -174,8 +174,9 @@ export async function notifyUser(userId: string, message: string): Promise<void>
  */
 export async function notifyOwners(catId: string, message: string): Promise<void> {
   try {
+    // Revoked owners lose notifications (Requirement 16.2).
     const owners = await prisma.ownership.findMany({
-      where: { catId, level: { gte: 1 } },
+      where: { catId, level: { gte: 1 }, revokedAt: null },
       select: { userId: true },
     });
 

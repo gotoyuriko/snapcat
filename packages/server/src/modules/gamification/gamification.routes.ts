@@ -18,3 +18,13 @@ gamificationRoutes.get('/stats', authMiddleware, (req, res) => controller.getUse
 gamificationRoutes.get('/badges', authMiddleware, (req, res) =>
   controller.getUserBadges(req, res),
 );
+
+// GET /gamification/badges/catalogue — all badges with criteria + progress (Req 18.6).
+gamificationRoutes.get('/badges/catalogue', authMiddleware, (req, res) =>
+  controller.getBadgeCatalogue(req, res),
+);
+
+// GET /gamification/rewards — earned level rewards and coupons (Req 17.11).
+gamificationRoutes.get('/rewards', authMiddleware, (req, res) =>
+  controller.getRewards(req, res),
+);

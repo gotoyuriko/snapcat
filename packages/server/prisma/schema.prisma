@@ -33,6 +33,8 @@ model User {
   donationXpLogs     DonationXpLog[]
   scanXpLogs         ScanXpLog[]
   notificationLogs   NotificationLog[]
+  rewardGrants       LevelRewardGrant[]
+  coupons            Coupon[]
 }
 
 model RefreshToken {
@@ -70,6 +72,7 @@ model Cat {
   donationXpLogs  DonationXpLog[]
   scanXpLogs      ScanXpLog[]
   embeddings      CatEmbedding[]
+  rewardGrants    LevelRewardGrant[]
 
   // Indexes
   @@index([lastKnownApproxLat, lastKnownApproxLng], name: "idx_cat_approx_location")
@@ -111,6 +114,16 @@ model Ownership {
   level  Int      @default(0)
   xp     Int      @default(0)
   since  DateTime @default(now())
+
+  // Requirement 16 — inactivity & revocation.
+  // lastActiveAt: refreshed on every donation or daily scan for this cat.
+  // revokedAt: non-null while owner privileges are revoked; level/xp are
+  // retained so a re-scan restores the previously attained level (Req 16.4).
+  // inactivityWarnedAt: when the 30-days-before-revocation warning was sent;
+  // cleared whenever activity resumes.
+  lastActiveAt       DateTime  @default(now())
+  revokedAt          DateTime?
+  inactivityWarnedAt DateTime?
 
   // Relations
   user      User             @relation(fields: [userId], references: [id])
@@ -227,6 +240,38 @@ model UserInventory {
 
   // Compound primary key
   @@id([userId, foodItemId])
+}
+
+// Requirement 17: level-reward grants. One row per user–cat–level so each
+// level's reward is granted exactly once, even if the level is re-evaluated.
+model LevelRewardGrant {
+  userId     String
+  catId      String
+  level      Int
+  // 'coupon' | 'free_item' | 'keychain_order' | 'none'
+  rewardType String
+  grantedAt  DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+  cat  Cat  @relation(fields: [catId], references: [id])
+
+  @@id([userId, catId, level])
+}
+
+// Requirement 17.2, 17.8, 17.12: single-use discount coupons with a minimum
+// purchase, expiring 30 days after grant.
+model Coupon {
+  id               String    @id @default(uuid())
+  userId           String
+  amountOffCents   Int
+  minPurchaseCents Int
+  grantedForCatId  String?
+  grantedAtLevel   Int?
+  expiresAt        DateTime
+  usedAt           DateTime?
+  createdAt        DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id])
 }
 
 model DonationXpLog {

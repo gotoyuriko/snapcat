@@ -34,11 +34,15 @@ export function ownershipGate(requiredLevel: number) {
         },
       });
 
-      if (!ownership || ownership.level < requiredLevel) {
+      // Requirement 16.2: a revoked owner keeps their historical level but
+      // loses all owner privileges — treat as non-owner until restored.
+      if (!ownership || ownership.level < requiredLevel || ownership.revokedAt != null) {
         res.status(403).json({
-          error: 'Insufficient ownership level',
+          error: ownership?.revokedAt
+            ? 'Ownership revoked due to inactivity'
+            : 'Insufficient ownership level',
           required: requiredLevel,
-          current: ownership?.level ?? null,
+          current: ownership && ownership.revokedAt == null ? ownership.level : null,
         });
         return;
       }

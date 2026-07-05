@@ -22,6 +22,10 @@ export interface CheckoutIntent {
   items: CheckoutPricedItem[];
   totalCents: number;
   status: 'pending' | 'paid';
+  /** Applied coupon (Req 17.12), marked used at fulfillment. */
+  couponId?: string;
+  /** Discount applied by the coupon, in MYR cents. */
+  discountCents: number;
 }
 
 /**
@@ -48,7 +52,14 @@ export class CheckoutService {
   async createCheckout(
     userId: string,
     cart: CheckoutCartItem[],
-  ): Promise<{ intentId: string; paymentUrl: string; totalCents: number; items: CheckoutPricedItem[] }> {
+    couponId?: string,
+  ): Promise<{
+    intentId: string;
+    paymentUrl: string;
+    totalCents: number;
+    discountCents: number;
+    items: CheckoutPricedItem[];
+  }> {
     if (cart.length === 0) {
       throw new Error('No items to purchase');
     }
@@ -76,15 +87,46 @@ export class CheckoutService {
       quantity: quantities.get(foodItem.id)!,
     }));
 
-    const totalCents = items.reduce((sum, item) => sum + item.priceCents * item.quantity, 0);
+    const grossCents = items.reduce((sum, item) => sum + item.priceCents * item.quantity, 0);
+
+    // Requirement 17.2/17.8/17.12: apply a single-use, unexpired coupon
+    // meeting its minimum purchase. Validated here, marked used at fulfillment.
+    let discountCents = 0;
+    if (couponId) {
+      const coupon = await prisma.coupon.findUnique({ where: { id: couponId } });
+      if (!coupon || coupon.userId !== userId) {
+        throw new Error('Coupon not found');
+      }
+      if (coupon.usedAt) {
+        throw new Error('Coupon already used');
+      }
+      if (coupon.expiresAt < new Date()) {
+        throw new Error('Coupon expired');
+      }
+      if (grossCents < coupon.minPurchaseCents) {
+        throw new Error(
+          `Coupon requires a minimum purchase of RM${(coupon.minPurchaseCents / 100).toFixed(2)}`,
+        );
+      }
+      discountCents = Math.min(coupon.amountOffCents, grossCents);
+    }
+
+    const totalCents = grossCents - discountCents;
 
     const intentId = `ci_${crypto.randomUUID()}`;
-    checkoutIntents.set(intentId, { userId, items, totalCents, status: 'pending' });
+    checkoutIntents.set(intentId, {
+      userId,
+      items,
+      totalCents,
+      status: 'pending',
+      couponId,
+      discountCents,
+    });
 
-    // SANDBOX payment gateway — the exact total is routed to the gateway
+    // SANDBOX payment gateway — the exact (discounted) total is routed to the gateway
     const paymentUrl = `https://sandbox.payment.example.com/pay/${intentId}?amount=${totalCents}`;
 
-    return { intentId, paymentUrl, totalCents, items };
+    return { intentId, paymentUrl, totalCents, discountCents, items };
   }
 
   /**
@@ -114,6 +156,16 @@ export class CheckoutService {
           where: { userId_foodItemId: { userId: intent.userId, foodItemId: item.foodItemId } },
           update: { quantity: { increment: item.quantity } },
           create: { userId: intent.userId, foodItemId: item.foodItemId, quantity: item.quantity },
+        });
+      }
+
+      // Requirement 17.12: coupons are single-use — consumed atomically with
+      // fulfillment. The usedAt:null guard makes a concurrent double-spend a
+      // no-op on the second attempt.
+      if (intent.couponId) {
+        await tx.coupon.updateMany({
+          where: { id: intent.couponId, usedAt: null },
+          data: { usedAt: new Date() },
         });
       }
     });

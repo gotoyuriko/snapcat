@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import multer from 'multer';
 import { authMiddleware } from '../../middleware/auth';
 import { ChatController } from './chat.controller';
 
@@ -26,4 +27,18 @@ chatRoutes.get(
   '/:catId/messages',
   authMiddleware,
   (req, res) => controller.getMessages(req, res),
+);
+
+// POST /api/cats/:catId/photos — upload a chat image (Req 8.5).
+// Lvl1+ ownership is checked in the controller; the stored photo is served
+// from the public cat-photo route, same as scan photos.
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024, files: 1 },
+});
+chatRoutes.post(
+  '/:catId/photos',
+  authMiddleware,
+  upload.single('photo'),
+  (req, res) => controller.uploadPhoto(req, res),
 );

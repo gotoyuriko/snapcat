@@ -38,6 +38,12 @@ medicalRoutes.post(
   (req, res) => controller.create(req, res),
 );
 
+// GET /api/medical-requests/partners — certified partner locations (Req 9.13)
+medicalRoutes.get('/partners', authMiddleware, (req, res) => controller.listPartners(req, res));
+
+// GET /api/medical-requests/cat/:catId/mine — the requester's own requests for a cat
+medicalRoutes.get('/cat/:catId/mine', authMiddleware, (req, res) => controller.myRequests(req, res));
+
 // GET /api/medical-requests/documents/:fileName — signed private document access (Req 9.12).
 // No auth middleware: access control is the HMAC signature + expiry themselves.
 medicalRoutes.get('/documents/:fileName', (req, res) => controller.serveDocument(req, res));

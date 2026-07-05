@@ -36,6 +36,7 @@ function createStatefulMockPrisma(hasDiscovery: boolean) {
       update: jest.fn().mockResolvedValue({}),
     },
     ownership: {
+      updateMany: jest.fn().mockResolvedValue({ count: 0 }),
       findUnique: jest.fn().mockImplementation(() => {
         return Promise.resolve(ownershipRecord);
       }),

@@ -88,6 +88,32 @@ export class MedicalController {
     }
   }
 
+  /**
+   * GET /partners — certified partner locations shown to the user when they
+   * initiate a request (Requirement 9.13).
+   */
+  async listPartners(req: Request, res: Response): Promise<void> {
+    try {
+      const certifiedPartners = await this.service.getCertifiedPartners();
+      res.status(200).json({ certifiedPartners });
+    } catch (error) {
+      console.error('Error listing certified partners:', error);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  }
+
+  /** GET /cat/:catId/mine — the requester's own requests for a cat. */
+  async myRequests(req: Request, res: Response): Promise<void> {
+    try {
+      const requesterId = req.user!.userId;
+      const requests = await this.service.getUserRequestsForCat(requesterId, req.params.catId);
+      res.status(200).json({ requests });
+    } catch (error) {
+      console.error('Error listing medical requests:', error);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  }
+
   /** POST /:id/approve (staff) — approve + assign certified partner (Req 9.5, 9.6). */
   async approve(req: Request, res: Response): Promise<void> {
     const parsed = approveSchema.safeParse(req.body);

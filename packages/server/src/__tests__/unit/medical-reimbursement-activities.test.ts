@@ -201,7 +201,7 @@ describe('Medical Reimbursement Activities', () => {
       await notifyOwners('cat-1', 'Cat update');
 
       expect(mockFindMany).toHaveBeenCalledWith({
-        where: { catId: 'cat-1', level: { gte: 1 } },
+        where: { catId: 'cat-1', level: { gte: 1 }, revokedAt: null },
         select: { userId: true },
       });
       expect(mockNotify).toHaveBeenCalledTimes(2);

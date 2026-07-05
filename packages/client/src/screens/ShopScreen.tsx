@@ -9,6 +9,7 @@ import {
   ScrollView,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import { api } from '../services/api';
 import { FoodIcon } from '../components/FoodIcons';
 
@@ -45,6 +46,15 @@ interface PaymentResponse {
   intentId: string;
 }
 
+// Active discount coupons from GET /gamification/rewards (Requirement 17.12)
+interface Coupon {
+  id: string;
+  amountOffCents: number;
+  minPurchaseCents: number;
+  expiresAt: string;
+  status: 'active' | 'used' | 'expired';
+}
+
 // ─── Component ────────────────────────────────────────────────────────────────
 //
 // Direct checkout (Requirement 10): there is no in-app wallet. The user builds
@@ -66,6 +76,10 @@ export function ShopScreen() {
   // Checkout loading
   const [checkoutLoading, setCheckoutLoading] = useState(false);
 
+  // Discount coupons (Req 17.12): active coupons, one selectable per checkout
+  const [coupons, setCoupons] = useState<Coupon[]>([]);
+  const [selectedCouponId, setSelectedCouponId] = useState<string | null>(null);
+
   // ─── Data Fetching ────────────────────────────────────────────────────────
 
   const fetchFoodItems = useCallback(async () => {
@@ -82,9 +96,19 @@ export function ShopScreen() {
     }
   }, []);
 
+  const fetchCoupons = useCallback(async () => {
+    try {
+      const data = await api.get<{ coupons: Coupon[] }>('/gamification/rewards');
+      setCoupons(data.coupons.filter((c) => c.status === 'active'));
+    } catch {
+      setCoupons([]);
+    }
+  }, []);
+
   useEffect(() => {
     fetchFoodItems();
-  }, [fetchFoodItems]);
+    fetchCoupons();
+  }, [fetchFoodItems, fetchCoupons]);
 
   // ─── Cart Helpers ─────────────────────────────────────────────────────────
 
@@ -113,6 +137,20 @@ export function ShopScreen() {
 
   const cartItemCount = Object.values(cart).reduce((sum, qty) => sum + qty, 0);
 
+  // Coupon eligibility & projected discount (final amounts come from the server)
+  const selectedCoupon = coupons.find((c) => c.id === selectedCouponId) ?? null;
+  const couponDiscountMyr = selectedCoupon
+    ? Math.min(selectedCoupon.amountOffCents / 100, cartTotal)
+    : 0;
+  const payableTotal = cartTotal - couponDiscountMyr;
+
+  // Deselect a coupon automatically if the cart drops below its minimum
+  useEffect(() => {
+    if (selectedCoupon && cartTotal < selectedCoupon.minPurchaseCents / 100) {
+      setSelectedCouponId(null);
+    }
+  }, [cartTotal, selectedCoupon]);
+
   // ─── Checkout Handler ─────────────────────────────────────────────────────
 
   // SANDBOX: the gateway payment page (paymentUrl) is simulated with a
@@ -132,7 +170,10 @@ export function ShopScreen() {
 
     setCheckoutLoading(true);
     try {
-      const checkout = await api.post<CheckoutResponse>('/checkout', { items });
+      const checkout = await api.post<CheckoutResponse>('/checkout', {
+        items,
+        ...(selectedCouponId ? { couponId: selectedCouponId } : {}),
+      });
 
       Alert.alert(
         'Confirm Payment',
@@ -148,8 +189,10 @@ export function ShopScreen() {
                   {},
                 );
                 setCart({});
-                // Refresh catalogue + inventory to show newly purchased items
+                setSelectedCouponId(null);
+                // Refresh catalogue + inventory (and consume the coupon)
                 fetchFoodItems();
+                fetchCoupons();
                 Alert.alert('Payment Successful', 'Items added to your inventory!');
               } catch {
                 Alert.alert('Payment Failed', 'The payment could not be completed. Please try again.');
@@ -261,24 +304,64 @@ export function ShopScreen() {
               </View>
             );
           })}
+          {/* Coupons (Req 17.12): tap to apply one active coupon */}
+          {coupons.map((coupon) => {
+            const eligible = cartTotal >= coupon.minPurchaseCents / 100;
+            const selected = coupon.id === selectedCouponId;
+            return (
+              <TouchableOpacity
+                key={coupon.id}
+                style={styles.checkoutRow}
+                disabled={!eligible}
+                onPress={() => setSelectedCouponId(selected ? null : coupon.id)}
+                accessibilityLabel={`Coupon RM ${(coupon.amountOffCents / 100).toFixed(0)} off`}
+                accessibilityRole="checkbox"
+                accessibilityState={{ checked: selected, disabled: !eligible }}
+              >
+                <View style={styles.checkoutItemLeft}>
+                  <Ionicons
+                    name={selected ? 'checkbox' : 'square-outline'}
+                    size={18}
+                    color={eligible ? '#FF6B35' : '#BDBDBD'}
+                  />
+                  <Text
+                    style={[styles.checkoutItemName, !eligible && styles.couponIneligible]}
+                  >
+                    RM{(coupon.amountOffCents / 100).toFixed(0)} off
+                    {eligible
+                      ? ''
+                      : ` (min RM${(coupon.minPurchaseCents / 100).toFixed(0)})`}
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            );
+          })}
+          {selectedCoupon && (
+            <View style={styles.checkoutRow}>
+              <Text style={styles.checkoutItemName}>Coupon discount</Text>
+              <Text style={styles.checkoutItemTotal}>
+                −RM {couponDiscountMyr.toFixed(2)}
+              </Text>
+            </View>
+          )}
           <View style={styles.checkoutTotalRow}>
             <Text style={styles.checkoutTotalLabel}>Total</Text>
             <Text style={styles.checkoutTotalAmount}>
-              RM {cartTotal.toFixed(2)}
+              RM {payableTotal.toFixed(2)}
             </Text>
           </View>
           <TouchableOpacity
             style={[styles.checkoutButton, checkoutLoading && styles.buttonDisabled]}
             onPress={handleCheckout}
             disabled={checkoutLoading}
-            accessibilityLabel={`Pay RM ${cartTotal.toFixed(2)}`}
+            accessibilityLabel={`Pay RM ${payableTotal.toFixed(2)}`}
             accessibilityRole="button"
           >
             {checkoutLoading ? (
               <ActivityIndicator size="small" color="#fff" />
             ) : (
               <Text style={styles.checkoutButtonText}>
-                Pay RM {cartTotal.toFixed(2)}
+                Pay RM {payableTotal.toFixed(2)}
               </Text>
             )}
           </TouchableOpacity>
@@ -484,6 +567,9 @@ const styles = StyleSheet.create({
   checkoutItemName: {
     fontSize: 14,
     color: '#555',
+  },
+  couponIneligible: {
+    color: '#BDBDBD',
   },
   checkoutItemTotal: {
     fontSize: 14,

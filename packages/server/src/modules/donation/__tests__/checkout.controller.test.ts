@@ -111,9 +111,11 @@ describe('CheckoutController', () => {
       expect(res.body.items).toEqual([
         { foodItemId: VALID_ITEM_ID, name: 'Cat Kibble', priceMyr: 1, quantity: 7 },
       ]);
-      expect(mockCreateCheckout).toHaveBeenCalledWith('user-1', [
-        { foodItemId: VALID_ITEM_ID, quantity: 7 },
-      ]);
+      expect(mockCreateCheckout).toHaveBeenCalledWith(
+        'user-1',
+        [{ foodItemId: VALID_ITEM_ID, quantity: 7 }],
+        undefined, // no coupon applied
+      );
     });
   });
 

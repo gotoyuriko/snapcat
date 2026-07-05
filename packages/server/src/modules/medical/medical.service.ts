@@ -103,6 +103,25 @@ export class MedicalService {
     });
   }
 
+  /**
+   * The requester's own medical requests for a cat, newest first — powers
+   * the client medical screen's status list.
+   */
+  async getUserRequestsForCat(requesterId: string, catId: string) {
+    return prisma.medicalRequest.findMany({
+      where: { requesterId, catId },
+      orderBy: { createdAt: 'desc' },
+      select: {
+        id: true,
+        type: true,
+        reason: true,
+        status: true,
+        createdAt: true,
+        partner: { select: { name: true, type: true } },
+      },
+    });
+  }
+
   private async getRequestOrThrow(requestId: string): Promise<PrismaMedicalRequest> {
     const request = await prisma.medicalRequest.findUnique({ where: { id: requestId } });
     if (!request) throw new MedicalRequestNotFoundError();
