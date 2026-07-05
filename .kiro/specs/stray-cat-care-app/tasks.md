@@ -1,8 +1,8 @@
-# Implementation Plan: CodingKitty
+# Implementation Plan: SnapCat
 
 ## Overview
 
-Implement the CodingKitty modular monolith (Node.js/TypeScript backend + React Native client) in incremental layers: database schema → core modules → AI pipeline → gamification → financial workflows → client UI. TypeScript is used throughout. Property-based tests use `fast-check`; unit tests use `jest`.
+Implement the SnapCat modular monolith (Node.js/TypeScript backend + React Native client) in incremental layers: database schema → core modules → AI pipeline → gamification → financial workflows → client UI. TypeScript is used throughout. Property-based tests use `fast-check`; unit tests use `jest`.
 
 ---
 

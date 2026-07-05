@@ -1,6 +1,20 @@
-# CodingKitty Example
+# SnapCat 🐾
 
-A community-driven platform for discovering, tracking, and caring for stray cats. Users can identify cats via AI-powered image recognition, track sightings on a map, donate food, request veterinary care, and chat with other caretakers.
+**A [Hack The Kitty](https://hackthekitty.com/) hackathon project.**
+
+SnapCat is a community-driven stray cat care platform for Malaysia, styled after Pokémon GO. Stray cats appear as silhouettes on a live map — walk up, scan one with your camera, and a two-stage AI pipeline (YOLO detection + MegaDescriptor re-identification) either recognises a known cat or registers a new one. Caring for cats builds a per-cat contribution ladder that unlocks community features as you level up.
+
+## Features
+
+- **Live map** — nearby cats shown at GPS-fuzzed (±100–200 m) locations to protect them from harm; undiscovered cats appear as silhouettes
+- **AI cat scanning** — YOLO cat detection + MegaDescriptor 768-dim embeddings with pgvector similarity search to re-identify individual cats
+- **Catpedia** — a collectible catalogue of every cat you've discovered
+- **Contribution ladder & gamification** — per-cat XP from scans and donations; levels 1–10 with badges (bronze/silver/gold/diamond), level rewards, and a leaderboard
+- **Community chat** — real-time per-cat chat (Socket.io) with photo sharing, unlocked at Level 1 ownership
+- **Food donations** — direct checkout shop; donations feed a community pool and award XP
+- **WebAR feeding** — feed a cat in augmented reality from donated inventory
+- **Medical & grooming care requests** — Level 7+ owners can request care; a durable Temporal workflow drives the full lifecycle (staff review → owner picks a certified partner clinic/salon → service window → two-sided completion proof → reimbursement from the community pool)
+- **Security hardening** — GPS response guard middleware, JWT auth with rotating refresh tokens, continuous dependency/SAST scanning (Aikido), property-based tests with fast-check
 
 ## Architecture
 
