@@ -199,6 +199,18 @@ codingkitty/
 └── tsconfig.base.json   # Shared TS config
 ```
 
+## Sponsors & Tools
+
+Built on technology from the Hack The Kitty sponsors:
+
+[![Temporal](https://img.shields.io/badge/Temporal-durable_workflows-black?logo=temporal&logoColor=white)](https://temporal.io)
+[![Aikido Security](https://img.shields.io/badge/Aikido_Security-scanning-6f42c1)](https://www.aikido.dev)
+[![Kiro](https://img.shields.io/badge/Kiro-spec--driven_dev-8A2BE2)](https://kiro.dev)
+
+- **[Temporal](https://temporal.io)** — every financial flow in SnapCat runs on durable Temporal workflows: donation escrow (hold → release to the cat's community pool) and the full multi-stage medical/grooming reimbursement state machine with 30-day durable timers, signal-driven stage transitions, and idempotent payouts that survive server restarts.
+- **[Aikido Security](https://www.aikido.dev)** — continuous dependency and SAST scanning wraps the payment/donation API surfaces, complementing our HMAC-verified webhooks and GPS-privacy middleware.
+- **[Kiro](https://kiro.dev)** — the entire project was built spec-first with Kiro: 19 EARS-format requirements, a design document, and a 24-task implementation plan live in [`.kiro/specs/stray-cat-care-app/`](.kiro/specs/stray-cat-care-app/), and every module traces back to numbered acceptance criteria.
+
 ## Team
 
 Built for [Hack The Kitty](https://hackthekitty.com/) by:
