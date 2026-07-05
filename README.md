@@ -9,14 +9,15 @@ SnapCat is a community-driven stray cat care platform for Malaysia. Stray cats a
 ## Demo
 
 <!-- TODO: add a 2–3 min demo video link here -->
+
 📺 **Demo video:** _coming soon_
 
-| Live map | Scan a cat | Cat profile |
-| --- | --- | --- |
+| Live map            | Scan a cat          | Cat profile         |
+| ------------------- | ------------------- | ------------------- |
 | <!-- screenshot --> | <!-- screenshot --> | <!-- screenshot --> |
 
-| Community chat | Care request | Badges & rewards |
-| --- | --- | --- |
+| Community chat      | Care request        | Badges & rewards    |
+| ------------------- | ------------------- | ------------------- |
 | <!-- screenshot --> | <!-- screenshot --> | <!-- screenshot --> |
 
 <!-- Drop screenshots into docs/screenshots/ and reference them like:
@@ -142,35 +143,46 @@ Register an account in the app first, then see **[docs/DEMO-GUIDE.md](docs/DEMO-
 Hard-won lessons from our own demo setups — check here before debugging from scratch.
 
 ### `npm install` / `prisma generate` fails with `EPERM: operation not permitted, rename '...query_engine-windows.dll.node...'`
+
 The API server or Temporal worker is still running and holds the Prisma engine DLL (Windows locks in-use files). `./setup.sh` now stops the previous run automatically before installing, so simply re-running it usually resolves this. If installing manually, **always stop the stack first**:
+
 ```bash
 ./stop.sh          # or Ctrl+C every terminal running dev/worker/expo
 npm install        # now succeeds
 ./setup.sh
 ```
+
 If it persists, some orphaned `node.exe` from an old terminal is still alive — check Task Manager for node processes and end the ones whose command line mentions `ts-node-dev`, `worker`, or `expo`.
 
 ### `./setup.sh: No such file or directory`
+
 You are one folder too high. The repo root is the **inner** `codingkitty` folder:
+
 ```bash
 cd codingkittyhackaton/codingkitty/codingkitty   # note: codingkitty twice
 ```
 
 ### Phone shows "Failed to download remote update" (java.io.IOException)
+
 The app in Expo Go is pointing at a **dead tunnel URL**. Every tunnel restart mints a brand-new `trycloudflare.com` URL, so:
+
 - **Always scan the freshly printed QR code** — never tap the project under "Recently opened" in Expo Go.
 - If it still fails, the tunnel may be up but Metro unreachable: on some Windows setups Metro binds only the IPv6 loopback (`::1`), which is why `start-tunnel.ps1` targets `[::1]:8082` for the Metro tunnel. Don't change that back to `127.0.0.1` (it 502s).
 
 ### Expo Go says "Project is incompatible with this version of Expo Go"
+
 The project is pinned to **Expo SDK 54** on purpose — the Play Store build of Expo Go supports SDK 54. If you see this error, either your Expo Go auto-updated to a different SDK build, or someone bumped `expo` in `packages/client/package.json`. Keep `"expo": "~54.0.0"`, and when installing new Expo packages use `npx expo install <pkg>` so versions match the SDK.
 
 ### App bundle fails with `Unable to resolve module <something>`
+
 An `expo install`/`npm install` in a workspace sometimes prunes hoisted packages other libraries need (we lost `buffer` this way). Fix: stop the stack, run `npm install` once at the **repo root**, restart.
 
 ### Demo seed errors with "No certified partners found" or "User not found"
+
 Order matters: `npm run prisma:seed` (base data) → register your account in the app → `npx ts-node prisma/seed-demo.ts your-email@example.com`. The demo seed is safe to re-run; it clears and rebuilds its own data each time.
 
 ### Donation XP / care requests never progress
+
 The **Temporal worker isn't running** — it processes donation escrow (XP lands ~30 s after donating) and every care-request stage transition. Start it: `npm run worker --workspace @codingkitty/server`.
 
 ## Project Structure
@@ -216,7 +228,7 @@ Built on technology from the Hack The Kitty sponsors:
 Built for [Hack The Kitty](https://hackthekitty.com/) by:
 
 - [Yuriko Goto](https://github.com/gotoyuriko) — @gotoyuriko
-- [Christian Jandra](https://github.com/christjandra15) — @christjandra15
+- [Christian Tjandra](https://github.com/christjandra15) — @christjandra15
 
 ## License
 
