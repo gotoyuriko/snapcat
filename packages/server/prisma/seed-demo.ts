@@ -65,6 +65,13 @@ async function clearUserCatData(userId: string) {
   await prisma.sighting.deleteMany({
     where: { OR: [{ reporterId: userId }, { catId: { in: catIds } }] },
   });
+  // Post-merge tables that reference Cat/User (level rewards + coupons).
+  await prisma.levelRewardGrant.deleteMany({
+    where: { OR: [{ userId }, { catId: { in: catIds } }] },
+  });
+  await prisma.coupon.deleteMany({
+    where: { OR: [{ userId }, { grantedForCatId: { in: catIds } }] },
+  });
   await prisma.ownership.deleteMany({
     where: { OR: [{ userId: { equals: userId } }, { catId: { in: catIds } }] },
   });
