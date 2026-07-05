@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# One-shot setup + start for CodingKitty.
+# One-shot setup + start for SnapCat.
 #
 # Installs dependencies, brings up Postgres/Temporal/MinIO via Docker, applies
 # migrations, seeds base data, then starts the API server, Temporal worker,
@@ -160,7 +160,7 @@ done
 
 echo ""
 echo "=============================================================="
-ok "CodingKitty is running."
+ok "SnapCat is running."
 echo "  API server:      http://$LAN_IP:3000   (logs: logs/server.log)"
 echo "  Temporal worker:  logs/worker.log"
 if [[ -n "$METRO_URL" ]]; then

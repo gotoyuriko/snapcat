@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "CodingKitty",
+    "name": "SnapCat",
     "slug": "codingkitty",
     "version": "0.1.0",
     "orientation": "portrait",
@@ -18,8 +18,8 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.codingkitty.app",
       "infoPlist": {
-        "NSCameraUsageDescription": "CodingKitty needs camera access to scan and identify cats.",
-        "NSLocationWhenInUseUsageDescription": "CodingKitty needs your location to show nearby cats and sightings."
+        "NSCameraUsageDescription": "SnapCat needs camera access to scan and identify cats.",
+        "NSLocationWhenInUseUsageDescription": "SnapCat needs your location to show nearby cats and sightings."
       }
     },
     "android": {

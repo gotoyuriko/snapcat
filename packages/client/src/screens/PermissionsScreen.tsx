@@ -82,7 +82,7 @@ export function PermissionsScreen() {
   if (step === 'explanation') {
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
-        <Text style={styles.title}>Welcome to CodingKitty 🐱</Text>
+        <Text style={styles.title}>Welcome to SnapCat 🐱</Text>
         <Text style={styles.subtitle}>
           Before we get started, we need a couple of permissions to give you the
           best experience.

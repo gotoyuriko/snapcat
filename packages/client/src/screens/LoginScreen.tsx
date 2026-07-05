@@ -67,7 +67,7 @@ export function LoginScreen() {
         style={styles.inner}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        <Text style={styles.logo}>🐾 CodingKitty</Text>
+        <Text style={styles.logo}>🐾 SnapCat</Text>
         <Text style={styles.subtitle}>{isRegister ? 'Create an account' : 'Welcome back'}</Text>
 
         {isRegister && (

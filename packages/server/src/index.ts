@@ -71,7 +71,7 @@ startInactivityJob();
 const PORT = config.port || 3000;
 
 httpServer.listen(PORT, () => {
-  console.log(`CodingKitty server running on port ${PORT}`);
+  console.log(`SnapCat server running on port ${PORT}`);
 });
 
 export { app, io };
