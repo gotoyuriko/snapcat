@@ -215,7 +215,7 @@ export class GamificationService {
     restoreRevocation: boolean,
   ): Promise<void> {
     await this.prisma.ownership.updateMany({
-      where: { userId, catId },
+      where: { userId: { equals: userId }, catId: { equals: catId } },
       data: {
         lastActiveAt: new Date(),
         inactivityWarnedAt: null,
