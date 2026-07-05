@@ -6,23 +6,6 @@ SnapCat is a community-driven stray cat care platform for Malaysia. Stray cats a
 
 > **Naming note:** the app and all user-facing branding are **SnapCat**; internal identifiers (npm packages `@codingkitty/*`, Docker container names, the Expo slug) keep the original `codingkitty` working title to avoid breaking the workspace — they never appear on screen.
 
-## Demo
-
-<!-- TODO: add a 2–3 min demo video link here -->
-
-📺 **Demo video:** _coming soon_
-
-| Live map            | Scan a cat          | Cat profile         |
-| ------------------- | ------------------- | ------------------- |
-| <!-- screenshot --> | <!-- screenshot --> | <!-- screenshot --> |
-
-| Community chat      | Care request        | Badges & rewards    |
-| ------------------- | ------------------- | ------------------- |
-| <!-- screenshot --> | <!-- screenshot --> | <!-- screenshot --> |
-
-<!-- Drop screenshots into docs/screenshots/ and reference them like:
-     <img src="docs/screenshots/map.png" width="240"> -->
-
 ## Features
 
 - **Live map** — nearby cats shown at GPS-fuzzed (±100–200 m) locations to protect them from harm; undiscovered cats appear as silhouettes
