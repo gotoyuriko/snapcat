@@ -14,6 +14,7 @@ import { MedicalRequestScreen } from '../screens/MedicalRequestScreen';
 import { CareRequestsScreen } from '../screens/CareRequestsScreen';
 import { CareRequestDetailScreen } from '../screens/CareRequestDetailScreen';
 import { LevelRewardsScreen } from '../screens/LevelRewardsScreen';
+import { BadgeCatalogueScreen } from '../screens/BadgeCatalogueScreen';
 import { MainTabs } from './MainTabs';
 
 export type RootStackParamList = {
@@ -29,6 +30,7 @@ export type RootStackParamList = {
   CareRequests: undefined;
   CareRequestDetail: { requestId: string };
   LevelRewards: { catId: string; catName?: string | null; level: number; xp: number };
+  BadgeCatalogue: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -102,6 +104,11 @@ export function RootNavigation() {
               name="LevelRewards"
               component={LevelRewardsScreen}
               options={{ title: 'Level Rewards' }}
+            />
+            <Stack.Screen
+              name="BadgeCatalogue"
+              component={BadgeCatalogueScreen}
+              options={{ title: 'Badge Catalogue' }}
             />
           </>
         )}

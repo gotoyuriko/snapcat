@@ -63,8 +63,9 @@ type CatpediaEntry = DiscoveredCatEntry | UndiscoveredCatEntry;
 
 const FILTER_TABS: { label: string; value: CatpediaFilter }[] = [
   { label: 'All', value: 'all' },
-  { label: 'Discovered', value: 'discovered' },
-  { label: 'Owned', value: 'owned' },
+  // Req 7.2 naming: "Stray" = discovered but not owned, "Pet" = Lvl1+ owned.
+  { label: 'Stray', value: 'discovered' },
+  { label: 'Pet', value: 'owned' },
   { label: 'Nearby', value: 'nearby' },
 ];
 

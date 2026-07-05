@@ -109,10 +109,21 @@ export class MedicalController {
     }
   }
 
+  /** GET /cat/:catId/mine — the requester's own requests for a cat. */
+  async myRequests(req: Request, res: Response): Promise<void> {
+    try {
+      const requesterId = req.user!.userId;
+      const requests = await this.service.getUserRequestsForCat(requesterId, req.params.catId);
+      res.status(200).json({ requests });
+    } catch (err) {
+      this.handleError(err, res);
+    }
+  }
+
   /** GET /partners?type=medical|grooming — certified partners for a request type. */
   async listPartners(req: Request, res: Response): Promise<void> {
     try {
-      const type = typeof req.query.type === 'string' ? req.query.type : undefined;
+      const type = typeof req.query?.type === 'string' ? req.query.type : undefined;
       const partners = await this.service.getCertifiedPartners(type);
       res.status(200).json({ partners });
     } catch (err) {

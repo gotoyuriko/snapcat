@@ -265,7 +265,7 @@ export function CareRequestDetailScreen() {
           ) : null}
           {request.status === 'reimbursed' && request.amountCents > 0 && (
             <Text style={styles.reimbursedText}>
-              RM {(request.amountCents / 100).toFixed(2)} reimbursed to your wallet
+              RM {(request.amountCents / 100).toFixed(2)} reimbursement approved — sent to your preferred account
             </Text>
           )}
         </View>
@@ -315,7 +315,7 @@ export function CareRequestDetailScreen() {
               Pay the {request.type === 'medical' ? 'clinic' : 'salon'} with your own money, then
               submit your receipt and photos taken during the visit (bringing your cat in,
               treatment, etc.). The partner provides their proof on their side — once both match,
-              your reimbursement is sent to your wallet.
+              your reimbursement is transferred to your preferred account.
             </Text>
 
             <Text style={styles.fieldLabel}>Amount paid (RM)</Text>

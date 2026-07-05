@@ -97,7 +97,7 @@ export async function verifyInvoice(
  */
 export async function releaseReimbursement(
   catId: string,
-  requesterId: string,
+  _requesterId: string,
   amountCents: number,
   requestId: string,
 ): Promise<ReleaseReimbursementResult> {
@@ -135,13 +135,12 @@ export async function releaseReimbursement(
       };
     }
 
+    // Record the release against the pool. The in-app wallet was removed
+    // (direct-checkout rework), so the payout itself happens off-platform —
+    // staff transfer the amount to the requester's bank account / e-wallet.
     await tx.medicalRequest.update({
       where: { id: requestId },
       data: { amountCents, reimbursedAt: new Date() },
-    });
-    await tx.user.update({
-      where: { id: requesterId },
-      data: { walletBalance: { increment: amountCents } },
     });
 
     return { released: true };
@@ -192,8 +191,9 @@ export async function notifyUser(userId: string, message: string): Promise<void>
  */
 export async function notifyOwners(catId: string, message: string): Promise<void> {
   try {
+    // Revoked owners lose notifications (Requirement 16.2).
     const owners = await prisma.ownership.findMany({
-      where: { catId, level: { gte: 1 } },
+      where: { catId, level: { gte: 1 }, revokedAt: null },
       select: { userId: true },
     });
 

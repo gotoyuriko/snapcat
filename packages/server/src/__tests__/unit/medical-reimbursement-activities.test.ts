@@ -155,12 +155,11 @@ describe('Medical Reimbursement Activities', () => {
       );
     });
 
-    it('should debit the pool and credit the requester wallet when funds suffice', async () => {
+    it('should debit the pool and record the release when funds suffice', async () => {
       mockFindUnique.mockResolvedValue({ id: 'req-1', reimbursedAt: null });
       mockDonationAggregate.mockResolvedValue({ _sum: { amountCents: 10000 } });
       mockRequestAggregate.mockResolvedValue({ _sum: { amountCents: 2000 } });
       mockUpdate.mockResolvedValue({});
-      mockUserUpdate.mockResolvedValue({});
 
       const result = await releaseReimbursement('cat-1', 'user-1', 5000, 'req-1');
 
@@ -169,10 +168,8 @@ describe('Medical Reimbursement Activities', () => {
         where: { id: 'req-1' },
         data: { amountCents: 5000, reimbursedAt: expect.any(Date) },
       });
-      expect(mockUserUpdate).toHaveBeenCalledWith({
-        where: { id: 'user-1' },
-        data: { walletBalance: { increment: 5000 } },
-      });
+      // Wallet was removed (direct-checkout rework) — no user balance update.
+      expect(mockUserUpdate).not.toHaveBeenCalled();
     });
 
     it('should refuse release when pool balance is insufficient', async () => {
@@ -229,7 +226,7 @@ describe('Medical Reimbursement Activities', () => {
       await notifyOwners('cat-1', 'Cat update');
 
       expect(mockFindMany).toHaveBeenCalledWith({
-        where: { catId: 'cat-1', level: { gte: 1 } },
+        where: { catId: 'cat-1', level: { gte: 1 }, revokedAt: null },
         select: { userId: true },
       });
       expect(mockNotify).toHaveBeenCalledTimes(2);

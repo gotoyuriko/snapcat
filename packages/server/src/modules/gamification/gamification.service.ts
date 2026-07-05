@@ -1,6 +1,7 @@
 import { PrismaClient } from '@prisma/client';
-import { GamificationAction, XPResult } from '@codingkitty/shared';
+import { EarnedBadge, GamificationAction, XPResult } from '@codingkitty/shared';
 import { AlertsService } from '../alerts/alerts.service';
+import { LevelRewardsService } from './level-rewards.service';
 
 /**
  * Ownership level thresholds (cumulative per-cat XP).
@@ -78,10 +79,17 @@ export function calculateLevel(xp: number): number {
 export class GamificationService {
   private prisma: PrismaClient;
   private alertsService: AlertsService;
+  private levelRewardsService: LevelRewardsService;
 
-  constructor(prisma: PrismaClient, alertsService?: AlertsService) {
+  constructor(
+    prisma: PrismaClient,
+    alertsService?: AlertsService,
+    levelRewardsService?: LevelRewardsService,
+  ) {
     this.prisma = prisma;
     this.alertsService = alertsService ?? new AlertsService();
+    this.levelRewardsService =
+      levelRewardsService ?? new LevelRewardsService(prisma, this.alertsService);
   }
 
   /**
@@ -97,12 +105,27 @@ export class GamificationService {
     action: GamificationAction,
     amountCents?: number,
   ): Promise<XPResult> {
+    // Requirement 16.1/16.4: donations and scans count as owner activity for
+    // this cat — refresh the inactivity clock BEFORE the daily-cap early
+    // returns below, so a capped scan/donation still counts as activity.
+    // Only a re-scan lifts an existing revocation (Req 16.4).
+    if (action === 'scan' || action === 'donation') {
+      await this.refreshOwnerActivity(userId, catId, action === 'scan');
+    }
+
+    // Requirement 18.2: detect milestone badges crossed by this exact action.
+    // The Donation / UserCatDiscovery record is already committed by the
+    // caller, so counting now tells us whether this action hit a threshold.
+    // Detected before the daily-cap early returns — a capped donation is
+    // still a donation for badge purposes.
+    const globalBadges = await this.detectGlobalBadges(userId, action);
+
     // 1. Determine base XP to award
     let xpToAward: number;
 
     if (action === 'donation') {
       if (amountCents == null || amountCents <= 0) {
-        return { xpAwarded: 0, newLevel: 0, levelUp: false };
+        return this.withBadges({ xpAwarded: 0, newLevel: 0, levelUp: false }, userId, globalBadges);
       }
       // XP = price in MYR (amountCents / 100)
       const rawXp = Math.floor(amountCents / 100);
@@ -113,7 +136,7 @@ export class GamificationService {
 
       if (xpToAward <= 0) {
         // Cap already reached — no XP awarded
-        return this.zeroResult(userId, catId);
+        return this.withBadges(await this.zeroResult(userId, catId), userId, globalBadges);
       }
     } else if (action === 'scan') {
       // Requirement 6.2: 3 XP once per unique daily scan per cat
@@ -135,8 +158,10 @@ export class GamificationService {
         data: { xp: { increment: xpToAward } },
       });
       // The same 16 XP also seeds the ownership ladder — the first
-      // discoverer starts at exactly Level 3.
-      return this.updateOwnershipXP(userId, catId, xpToAward);
+      // discoverer starts at exactly Level 3. Global milestone badges
+      // (e.g. "Discovered 10 Cats") ride along with the result (Req 18.2).
+      const discoveryResult = await this.updateOwnershipXP(userId, catId, xpToAward);
+      return this.withBadges(discoveryResult, userId, globalBadges);
     }
 
     // 3. Update per-cat Ownership XP and evaluate level promotion
@@ -149,7 +174,87 @@ export class GamificationService {
       await this.recordScanXpEntry(userId, catId, xpToAward);
     }
 
-    return result;
+    return this.withBadges(result, userId, globalBadges);
+  }
+
+  /**
+   * Requirement 18.2: milestone badges whose threshold is crossed by this
+   * exact action. Badges are derived (no badge table), so "newly earned"
+   * means the post-action count equals the threshold exactly.
+   */
+  private async detectGlobalBadges(
+    userId: string,
+    action: GamificationAction,
+  ): Promise<EarnedBadge[]> {
+    try {
+      if (action === 'donation') {
+        const donationCount = await this.prisma.donation.count({
+          where: { donorId: userId, status: { in: ['escrowed', 'released'] } },
+        });
+        return GLOBAL_BADGE_DEFS.filter(
+          (def) => def.metric === 'donations' && donationCount === def.target,
+        ).map(({ id, title, icon }) => ({ id, title, icon }));
+      }
+      if (action === 'discover_new') {
+        const catsDiscovered = await this.prisma.userCatDiscovery.count({ where: { userId } });
+        return GLOBAL_BADGE_DEFS.filter(
+          (def) => def.metric === 'discoveries' && catsDiscovered === def.target,
+        ).map(({ id, title, icon }) => ({ id, title, icon }));
+      }
+    } catch {
+      // Badge detection must never fail the XP award itself.
+    }
+    return [];
+  }
+
+  /**
+   * Merge global badges into an XPResult (per-cat tier badges are added by
+   * updateOwnershipXP) and send one push per newly earned badge (Req 18.2).
+   */
+  private async withBadges(
+    result: XPResult,
+    userId: string,
+    globalBadges: EarnedBadge[],
+  ): Promise<XPResult> {
+    const badgesEarned = [...globalBadges, ...(result.badgesEarned ?? [])];
+    if (badgesEarned.length === 0) {
+      return result;
+    }
+    for (const badge of globalBadges) {
+      try {
+        await this.alertsService.notifyMilestone(
+          userId,
+          'Badge Earned! 🏅',
+          `You earned the "${badge.title}" badge!`,
+        );
+      } catch {
+        // Push failure must never fail the XP award.
+      }
+    }
+    return { ...result, badgesEarned };
+  }
+
+  /**
+   * Requirement 16: mark the owner as active for this cat.
+   * Refreshes lastActiveAt and clears any pending inactivity warning.
+   * When `restoreRevocation` is true (scans only, Req 16.4), also lifts
+   * revocation — restoring the previously attained level and all privileges
+   * without re-earning XP (level/xp were never zeroed).
+   * No-op when no Ownership record exists.
+   */
+  private async refreshOwnerActivity(
+    userId: string,
+    catId: string,
+    restoreRevocation: boolean,
+  ): Promise<void> {
+    await this.prisma.ownership.updateMany({
+      where: { userId, catId },
+      data: {
+        lastActiveAt: new Date(),
+        inactivityWarnedAt: null,
+        ...(restoreRevocation ? { revokedAt: null } : {}),
+      },
+    });
   }
 
   /** XPResult for a call that awards nothing, reporting the current level. */
@@ -199,14 +304,18 @@ export class GamificationService {
 
       const newLevel = ownership.level;
       const levelUp = newLevel > 0;
+      let badgesEarned: EarnedBadge[] | undefined;
 
       // Send push notification AFTER DB commit for level-up
       if (levelUp) {
         await this.sendLevelUpNotification(userId, catId, newLevel);
-        await this.grantLevelRewards(userId, 0, newLevel);
+        // Requirement 17: grant level rewards for every level crossed.
+        await this.levelRewardsService.grantForLevelUp(userId, catId, 0, newLevel);
+        // Requirement 18.2: per-cat tier badges crossed by this level-up.
+        badgesEarned = await this.detectTierBadges(userId, catId, 0, newLevel);
       }
 
-      return { xpAwarded: xpToAdd, newLevel, levelUp };
+      return { xpAwarded: xpToAdd, newLevel, levelUp, badgesEarned };
     }
 
     // Ownership exists — increment XP
@@ -224,44 +333,64 @@ export class GamificationService {
     });
 
     const levelUp = newLevel > previousLevel;
+    let badgesEarned: EarnedBadge[] | undefined;
 
     // Send push notification AFTER DB commit for level-up
     if (levelUp) {
       await this.sendLevelUpNotification(userId, catId, newLevel);
-      await this.grantLevelRewards(userId, previousLevel, newLevel);
+      // Requirement 17: grant level rewards for every level crossed.
+      await this.levelRewardsService.grantForLevelUp(userId, catId, previousLevel, newLevel);
+      // Requirement 18.2: per-cat tier badges crossed by this level-up.
+      badgesEarned = await this.detectTierBadges(userId, catId, previousLevel, newLevel);
     }
 
-    return { xpAwarded: xpToAdd, newLevel, levelUp };
+    return { xpAwarded: xpToAdd, newLevel, levelUp, badgesEarned };
   }
 
   /**
-   * Grants the food-item rewards for every level crossed in
-   * (fromLevel, toLevel] to the user's inventory (Requirement 17.11).
-   * Failures are non-fatal — rewards must never break the XP flow.
+   * Requirement 18.2: per-cat level badges (bronze/silver/gold/diamond)
+   * whose tier level was crossed by this level-up. Sends one badge push per
+   * tier crossed (in addition to the level-up push).
    */
-  private async grantLevelRewards(
+  private async detectTierBadges(
     userId: string,
+    catId: string,
     fromLevel: number,
     toLevel: number,
-  ): Promise<void> {
-    try {
-      const crossed = LEVEL_REWARDS.filter((r) => r.level > fromLevel && r.level <= toLevel);
-      for (const reward of crossed) {
-        for (const item of reward.items) {
-          const foodItem = await this.prisma.foodItem.findFirst({
-            where: { name: item.name },
-          });
-          if (!foodItem) continue;
-          await this.prisma.userInventory.upsert({
-            where: { userId_foodItemId: { userId, foodItemId: foodItem.id } },
-            update: { quantity: { increment: item.quantity } },
-            create: { userId, foodItemId: foodItem.id, quantity: item.quantity },
-          });
-        }
-      }
-    } catch {
-      // Reward grant failure should not break the XP flow.
+  ): Promise<EarnedBadge[] | undefined> {
+    const crossed = BADGE_TIERS.filter((t) => fromLevel < t.level && t.level <= toLevel);
+    if (crossed.length === 0) {
+      return undefined;
     }
+
+    let catName = 'your cat';
+    try {
+      const cat = await this.prisma.cat.findUnique({ where: { id: catId } });
+      catName = cat?.name ?? catName;
+    } catch {
+      // Name lookup failure — fall back to the generic label.
+    }
+
+    const badges = crossed.map(({ level, tier }) => ({
+      id: `cat-${tier.toLowerCase()}-${catId}`,
+      title: `${tier} Badge — ${catName}`,
+      icon: 'ribbon',
+      levelRequired: level,
+    }));
+
+    for (const badge of badges) {
+      try {
+        await this.alertsService.notifyMilestone(
+          userId,
+          'Badge Earned! 🏅',
+          `You earned the ${badge.title}!`,
+        );
+      } catch {
+        // Push failure must never fail the XP award.
+      }
+    }
+
+    return badges.map(({ id, title, icon }) => ({ id, title, icon }));
   }
 
   /**
@@ -463,6 +592,57 @@ export class GamificationService {
   }
 
   /**
+   * Badge catalogue (Requirement 18.6): every available badge with its
+   * unlock criteria and the user's current progress toward it.
+   */
+  async getBadgeCatalogue(userId: string) {
+    const [catsDiscovered, donationCount, ownerships] = await Promise.all([
+      this.prisma.userCatDiscovery.count({ where: { userId } }),
+      this.prisma.donation.count({
+        where: { donorId: userId, status: { in: ['escrowed', 'released'] } },
+      }),
+      this.prisma.ownership.findMany({
+        where: { userId },
+        select: { level: true },
+      }),
+    ]);
+
+    const globalEntries = GLOBAL_BADGE_DEFS.map((def) => {
+      const progress = def.metric === 'donations' ? donationCount : catsDiscovered;
+      return {
+        id: def.id,
+        title: def.title,
+        icon: def.icon,
+        type: 'global' as const,
+        criteria: def.criteria,
+        target: def.target,
+        progress: Math.min(progress, def.target),
+        earned: progress >= def.target,
+      };
+    });
+
+    // Per-cat tier badges: progress is the user's highest ownership level;
+    // earnedCount says with how many cats the tier has been reached.
+    const highestLevel = ownerships.reduce((max, o) => Math.max(max, o.level), 0);
+    const tierEntries = BADGE_TIERS.map(({ level, tier }) => {
+      const earnedCount = ownerships.filter((o) => o.level >= level).length;
+      return {
+        id: `tier-${tier.toLowerCase()}`,
+        title: `${tier} Badge`,
+        icon: 'ribbon',
+        type: 'per-cat' as const,
+        criteria: `Reach ownership Level ${level} with a cat`,
+        target: level,
+        progress: Math.min(highestLevel, level),
+        earned: earnedCount > 0,
+        earnedCount,
+      };
+    });
+
+    return { badges: [...globalEntries, ...tierEntries] };
+  }
+
+  /**
    * Global leaderboard — top users ranked by total XP.
    */
   async getLeaderboard(limit = 20) {
@@ -487,12 +667,26 @@ const GLOBAL_BADGE_DEFS: ReadonlyArray<{
   id: string;
   title: string;
   icon: string;
+  /** Which aggregate count unlocks this badge (also drives Req 18.2 detection). */
+  metric: 'donations' | 'discoveries';
+  /** Count at which the badge unlocks. */
+  target: number;
+  /** Unlock criteria text for the badge catalogue (Req 18.6). */
+  criteria: string;
   earned: (s: { catsDiscovered: number; donationCount: number }) => boolean;
 }> = [
-  { id: 'first-donation', title: 'First Donation', icon: 'heart', earned: (s) => s.donationCount >= 1 },
-  { id: 'donations-100', title: '100 Total Donations', icon: 'heart-circle', earned: (s) => s.donationCount >= 100 },
-  { id: 'discovered-10', title: 'Discovered 10 Cats', icon: 'paw', earned: (s) => s.catsDiscovered >= 10 },
-  { id: 'discovered-50', title: 'Discovered 50 Cats', icon: 'paw', earned: (s) => s.catsDiscovered >= 50 },
+  { id: 'first-donation', title: 'First Donation', icon: 'heart', metric: 'donations', target: 1, criteria: 'Donate a food item to any cat', earned: (s) => s.donationCount >= 1 },
+  { id: 'donations-100', title: '100 Total Donations', icon: 'heart-circle', metric: 'donations', target: 100, criteria: 'Donate 100 food items in total', earned: (s) => s.donationCount >= 100 },
+  { id: 'discovered-10', title: 'Discovered 10 Cats', icon: 'paw', metric: 'discoveries', target: 10, criteria: 'Discover 10 different cats', earned: (s) => s.catsDiscovered >= 10 },
+  { id: 'discovered-50', title: 'Discovered 50 Cats', icon: 'paw', metric: 'discoveries', target: 50, criteria: 'Discover 50 different cats', earned: (s) => s.catsDiscovered >= 50 },
+];
+
+/** Per-cat level badge tiers (Requirement 17.3/17.5/17.7/17.10, 18.4). */
+const BADGE_TIERS: ReadonlyArray<{ level: number; tier: string }> = [
+  { level: 3, tier: 'Bronze' },
+  { level: 5, tier: 'Silver' },
+  { level: 7, tier: 'Gold' },
+  { level: 10, tier: 'Diamond' },
 ];
 
 /** Returns the start of the current UTC day */

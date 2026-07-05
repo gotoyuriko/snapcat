@@ -44,6 +44,11 @@ medicalRoutes.get('/mine', authMiddleware, (req, res) => controller.listMine(req
 // GET /api/medical-requests/partners?type= — certified partners (filtered by request type)
 medicalRoutes.get('/partners', authMiddleware, (req, res) => controller.listPartners(req, res));
 
+// GET /api/medical-requests/cat/:catId/mine — the caller's requests for one cat
+medicalRoutes.get('/cat/:catId/mine', authMiddleware, (req, res) =>
+  controller.myRequests(req, res),
+);
+
 // Owner picks the certified location (awaiting_owner → pending_review)
 medicalRoutes.post('/:id/choose-partner', authMiddleware, (req, res) =>
   controller.choosePartner(req, res),

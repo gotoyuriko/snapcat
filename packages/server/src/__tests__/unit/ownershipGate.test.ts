@@ -78,6 +78,41 @@ describe('ownershipGate middleware', () => {
     expect(next).not.toHaveBeenCalled();
   });
 
+  it('returns 403 if ownership is revoked for inactivity, despite sufficient level (Requirement 16.2)', async () => {
+    const req = createMockReq({ body: { catId: 'cat-1' } });
+    const res = createMockRes();
+    mockFindUnique.mockResolvedValue({
+      userId: 'user-1',
+      catId: 'cat-1',
+      level: 9,
+      revokedAt: new Date('2026-01-01'),
+    });
+
+    const middleware = ownershipGate(7);
+    await middleware(req as Request, res as Response, next);
+
+    expect(res.statusCode).toBe(403);
+    expect(res.body.error).toBe('Ownership revoked due to inactivity');
+    expect(res.body.current).toBeNull();
+    expect(next).not.toHaveBeenCalled();
+  });
+
+  it('calls next() when ownership is restored (revokedAt null) (Requirement 16.4)', async () => {
+    const req = createMockReq({ body: { catId: 'cat-1' } });
+    const res = createMockRes();
+    mockFindUnique.mockResolvedValue({
+      userId: 'user-1',
+      catId: 'cat-1',
+      level: 7,
+      revokedAt: null,
+    });
+
+    const middleware = ownershipGate(7);
+    await middleware(req as Request, res as Response, next);
+
+    expect(next).toHaveBeenCalled();
+  });
+
   it('returns 403 if ownership level is below required (Requirement 9.2)', async () => {
     const req = createMockReq({ body: { catId: 'cat-1' } });
     const res = createMockRes();

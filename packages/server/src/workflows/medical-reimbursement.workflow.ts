@@ -259,8 +259,8 @@ export async function medicalReimbursementWorkflow(
 
   // Update final status
   await updateMedicalRequestStatus(requestId, 'reimbursed', undefined, undefined,
-    'Documentation verified on both sides — reimbursement sent to your wallet');
-  await notifyOwners(catId, 'Care contribution confirmed — the reimbursement has been sent to the requester\'s wallet!');
+    'Documentation verified on both sides — reimbursement released from the community pool');
+  await notifyOwners(catId, 'Care contribution confirmed — the reimbursement has been released to the requester!');
 
   return 'reimbursed';
 }

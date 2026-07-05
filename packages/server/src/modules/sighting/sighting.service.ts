@@ -86,9 +86,10 @@ export class SightingService {
   private async notifySightingToOwners(catId: string, reporterId: string): Promise<void> {
     if (!this.alertsService) return;
     try {
-      // Get all Lvl1+ owners, excluding the reporter
+      // Get all Lvl1+ owners, excluding the reporter.
+      // Revoked owners lose notifications (Requirement 16.2).
       const owners = await this.prisma.ownership.findMany({
-        where: { catId, level: { gte: 1 }, userId: { not: reporterId } },
+        where: { catId, level: { gte: 1 }, revokedAt: null, userId: { not: reporterId } },
         select: { userId: true },
       });
       if (owners.length === 0) return;

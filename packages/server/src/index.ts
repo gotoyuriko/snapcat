@@ -16,11 +16,12 @@ import { chatRoutes } from './modules/chat/chat.routes';
 import { ChatGateway } from './modules/chat/chat.gateway';
 import { staffVerificationRoutes } from './modules/staff-verification/staff-verification.routes';
 import { medicalRoutes } from './modules/medical/medical.routes';
-import { walletRoutes } from './modules/donation/wallet.routes';
+import { checkoutRoutes } from './modules/donation/checkout.routes';
 import { foodItemRoutes } from './modules/donation/food-item.routes';
 import { donationRoutes } from './modules/donation/donation.routes';
 import { leaderboardRoutes } from './modules/leaderboard/leaderboard.routes';
 import { gamificationRoutes } from './modules/gamification/gamification.routes';
+import { startInactivityJob } from './modules/gamification/inactivity.service';
 
 const app = express();
 const httpServer = createServer(app);
@@ -55,7 +56,7 @@ app.use('/api/cats', leaderboardRoutes);
 app.use('/api/cats', catProfileRoutes);
 app.use('/api/staff', staffVerificationRoutes);
 app.use('/api/medical-requests', medicalRoutes);
-app.use('/api/wallet', walletRoutes);
+app.use('/api/checkout', checkoutRoutes);
 app.use('/api/food-items', foodItemRoutes);
 app.use('/api/donations', donationRoutes);
 app.use('/api/gamification', gamificationRoutes);
@@ -63,6 +64,9 @@ app.use('/api/gamification', gamificationRoutes);
 // Socket.io setup — Initialize chat gateway
 const chatGateway = new ChatGateway(io);
 chatGateway.initialize();
+
+// Requirement 16.6: daily batch job that warns and revokes inactive owners.
+startInactivityJob();
 
 const PORT = config.port || 3000;
 

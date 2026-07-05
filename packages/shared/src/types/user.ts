@@ -8,7 +8,6 @@ export interface User {
   displayName: string;
   passwordHash: string;
   xp: number;
-  walletBalance: number;
   createdAt: Date;
 }
 

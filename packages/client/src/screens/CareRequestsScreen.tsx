@@ -184,7 +184,7 @@ export function CareRequestsScreen() {
                 ) : null}
                 {r.status === 'reimbursed' && r.amountCents > 0 && (
                   <Text style={styles.reimbursedText}>
-                    RM {(r.amountCents / 100).toFixed(2)} reimbursed to your wallet
+                    RM {(r.amountCents / 100).toFixed(2)} reimbursement approved
                   </Text>
                 )}
               </TouchableOpacity>

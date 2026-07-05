@@ -1,6 +1,14 @@
 import { Request, Response } from 'express';
 import { z } from 'zod';
+import { PrismaClient } from '@prisma/client';
 import { StaffVerificationService } from './staff-verification.service';
+import { validateCatName } from '../cat-profile/cat-name.moderation';
+
+const prisma = new PrismaClient();
+
+const renameCatSchema = z.object({
+  name: z.string(),
+});
 
 const createPartnerSchema = z.object({
   name: z.string().min(1).max(255),
@@ -96,6 +104,40 @@ export class StaffVerificationController {
     } catch (err: any) {
       if (err.code === 'P2025') {
         res.status(404).json({ error: 'Partner not found' });
+        return;
+      }
+      res.status(500).json({ error: err.message || 'Internal server error' });
+    }
+  }
+
+  /**
+   * PATCH /api/staff/cats/:catId/name — staff override/rename for a cat name
+   * reported as inappropriate (Requirement 19.8). The replacement name passes
+   * the same content moderation as user-submitted names.
+   */
+  async renameCat(req: Request, res: Response): Promise<void> {
+    try {
+      const parsed = renameCatSchema.safeParse(req.body);
+      if (!parsed.success) {
+        res.status(400).json({ error: 'Validation failed', details: parsed.error.flatten() });
+        return;
+      }
+
+      const validation = validateCatName(parsed.data.name);
+      if (!validation.valid) {
+        res.status(400).json({ error: validation.reason });
+        return;
+      }
+
+      const cat = await prisma.cat.update({
+        where: { id: req.params.catId },
+        data: { name: validation.name },
+      });
+
+      res.status(200).json({ id: cat.id, name: cat.name });
+    } catch (err: any) {
+      if (err.code === 'P2025') {
+        res.status(404).json({ error: 'Cat not found' });
         return;
       }
       res.status(500).json({ error: err.message || 'Internal server error' });

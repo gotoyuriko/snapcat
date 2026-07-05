@@ -29,10 +29,6 @@ interface UserStats {
   rank: number;
 }
 
-interface WalletInfo {
-  balance: number; // MYR cents
-}
-
 interface Badge {
   id: string;
   title: string;
@@ -49,6 +45,35 @@ interface InventoryEntry {
   quantity: number;
 }
 
+// GET /gamification/rewards (Requirement 17.11)
+interface RewardGrant {
+  catId: string;
+  catName: string | null;
+  level: number;
+  rewardType: 'coupon' | 'free_item' | 'keychain_order' | string;
+  grantedAt: string;
+}
+
+interface RewardCoupon {
+  id: string;
+  amountOffCents: number;
+  minPurchaseCents: number;
+  grantedAtLevel: number | null;
+  expiresAt: string;
+  status: 'active' | 'used' | 'expired';
+}
+
+interface RewardsResponse {
+  grants: RewardGrant[];
+  coupons: RewardCoupon[];
+}
+
+const REWARD_TYPE_LABEL: Record<string, string> = {
+  coupon: 'Discount coupon',
+  free_item: 'Free food item',
+  keychain_order: 'Engraved keychain (being made!)',
+};
+
 interface DonationRecord {
   id: string;
   foodItem: string;
@@ -63,7 +88,6 @@ export function ProfileScreen() {
 
   const [stats, setStats] = useState<UserStats | null>(null);
   const [badges, setBadges] = useState<Badge[]>([]);
-  const [balanceMyr, setBalanceMyr] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
 
@@ -71,13 +95,11 @@ export function ProfileScreen() {
     setLoading(true);
     setError(false);
     try {
-      const [statsData, wallet, badgeData] = await Promise.all([
+      const [statsData, badgeData] = await Promise.all([
         api.get<UserStats>('/gamification/stats'),
-        api.get<WalletInfo>('/wallet/balance'),
         api.get<{ badges: Badge[] }>('/gamification/badges'),
       ]);
       setStats(statsData);
-      setBalanceMyr(wallet.balance / 100);
       setBadges(badgeData.badges);
     } catch {
       setError(true);
@@ -127,7 +149,7 @@ export function ProfileScreen() {
   // My Rewards (level rewards inventory — Requirement 17.11) and Donation History
   // modals; each fetches on open.
   const [rewardsVisible, setRewardsVisible] = useState(false);
-  const [rewards, setRewards] = useState<InventoryEntry[] | null>(null);
+  const [rewards, setRewards] = useState<RewardsResponse | null>(null);
   const [historyVisible, setHistoryVisible] = useState(false);
   const [history, setHistory] = useState<DonationRecord[] | null>(null);
 
@@ -135,10 +157,9 @@ export function ProfileScreen() {
     setRewardsVisible(true);
     setRewards(null);
     try {
-      const data = await api.get<{ inventory: InventoryEntry[] }>('/food-items');
-      setRewards(data.inventory);
+      setRewards(await api.get<RewardsResponse>('/gamification/rewards'));
     } catch {
-      setRewards([]);
+      setRewards({ grants: [], coupons: [] });
     }
   }, []);
 
@@ -225,7 +246,17 @@ export function ProfileScreen() {
           </View>
 
           <View style={styles.card}>
-            <Text style={styles.cardLabel}>Badges</Text>
+            <View style={styles.badgeHeaderRow}>
+              <Text style={styles.cardLabel}>Badges</Text>
+              {/* Badge catalogue with criteria + progress (Req 18.6) */}
+              <TouchableOpacity
+                onPress={() => navigation.navigate('BadgeCatalogue' as never)}
+                accessibilityLabel="View all badges"
+                accessibilityRole="button"
+              >
+                <Text style={styles.badgeViewAll}>View all ›</Text>
+              </TouchableOpacity>
+            </View>
             {badges.length === 0 ? (
               <Text style={styles.badgeEmptyText}>
                 No badges yet — discover cats and donate to earn them!
@@ -251,13 +282,6 @@ export function ProfileScreen() {
                 ))}
               </View>
             )}
-          </View>
-
-          <View style={styles.card}>
-            <Text style={styles.cardLabel}>Wallet Balance</Text>
-            <Text style={styles.cardValue}>
-              {balanceMyr != null ? `RM ${balanceMyr.toFixed(2)}` : '—'}
-            </Text>
           </View>
 
           <View style={styles.menuCard}>
@@ -359,17 +383,51 @@ export function ProfileScreen() {
             <Text style={styles.modalTitle}>My Rewards</Text>
             {rewards == null ? (
               <ActivityIndicator size="small" color="#FF8C00" style={styles.modalSpinner} />
-            ) : rewards.length === 0 ? (
+            ) : rewards.grants.length === 0 && rewards.coupons.length === 0 ? (
               <Text style={styles.modalEmptyText}>
-                No rewards yet — level up with your cats to earn free food items!
+                No rewards yet — level up with your cats to earn coupons and free food items!
               </Text>
             ) : (
               <ScrollView style={styles.modalList}>
-                {rewards.map((entry) => (
-                  <View key={entry.foodItemId} style={styles.modalListRow}>
-                    <Ionicons name="fast-food-outline" size={18} color="#FF8C00" />
-                    <Text style={styles.modalListLabel}>{entry.name}</Text>
-                    <Text style={styles.modalListValue}>×{entry.quantity}</Text>
+                {/* Active coupons first (Req 17.11) */}
+                {rewards.coupons.map((coupon) => (
+                  <View key={coupon.id} style={styles.modalListRow}>
+                    <Ionicons
+                      name="pricetag-outline"
+                      size={18}
+                      color={coupon.status === 'active' ? '#FF8C00' : '#BDBDBD'}
+                    />
+                    <View style={styles.modalListMain}>
+                      <Text style={styles.modalListLabel}>
+                        RM{(coupon.amountOffCents / 100).toFixed(0)} off (min RM
+                        {(coupon.minPurchaseCents / 100).toFixed(0)})
+                      </Text>
+                      <Text style={styles.modalListSub}>
+                        {coupon.status === 'active'
+                          ? `Expires ${new Date(coupon.expiresAt).toLocaleDateString()}`
+                          : coupon.status === 'used'
+                            ? 'Used'
+                            : 'Expired'}
+                      </Text>
+                    </View>
+                  </View>
+                ))}
+                {rewards.grants.map((grant) => (
+                  <View key={`${grant.catId}-${grant.level}`} style={styles.modalListRow}>
+                    <Ionicons
+                      name={grant.rewardType === 'free_item' ? 'fast-food-outline' : 'gift-outline'}
+                      size={18}
+                      color="#FF8C00"
+                    />
+                    <View style={styles.modalListMain}>
+                      <Text style={styles.modalListLabel}>
+                        {REWARD_TYPE_LABEL[grant.rewardType] ?? grant.rewardType}
+                      </Text>
+                      <Text style={styles.modalListSub}>
+                        Lvl {grant.level}
+                        {grant.catName ? ` · ${grant.catName}` : ''}
+                      </Text>
+                    </View>
                   </View>
                 ))}
               </ScrollView>
@@ -538,6 +596,16 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#999',
     marginBottom: 4,
+  },
+  badgeHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  badgeViewAll: {
+    fontSize: 13,
+    color: '#FF8C00',
+    fontWeight: '600',
   },
   cardValue: {
     fontSize: 22,

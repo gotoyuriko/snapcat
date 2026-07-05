@@ -36,8 +36,9 @@ export async function notifyOwners(
   donorId: string,
   amountCents: number,
 ): Promise<void> {
+  // Revoked owners lose notifications (Requirement 16.2).
   const owners = await prisma.ownership.findMany({
-    where: { catId, level: { gte: 1 } },
+    where: { catId, level: { gte: 1 }, revokedAt: null },
     select: { userId: true },
   });
 

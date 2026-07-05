@@ -23,6 +23,8 @@ export interface FeedResult {
   xpAwarded: number;
   newLevel?: number;
   levelUp?: boolean;
+  /** Badges newly earned by this donation (Req 18.2 celebration). */
+  badgesEarned?: { id: string; title: string; icon: string }[];
 }
 
 interface FeedCatModalProps {
@@ -115,6 +117,7 @@ export function FeedCatModal({ visible, catId, onClose, onSuccess }: FeedCatModa
     let levelUp = false;
     let donatedAny = false;
     let failedItem: string | null = null;
+    const badgesEarned: { id: string; title: string; icon: string }[] = [];
 
     for (const { item, count } of toDonate) {
       try {
@@ -122,11 +125,13 @@ export function FeedCatModal({ visible, catId, onClose, onSuccess }: FeedCatModa
           xpAwarded?: number;
           newLevel?: number;
           levelUp?: boolean;
+          badgesEarned?: { id: string; title: string; icon: string }[];
         }>('/donations', { catId, foodItemId: item.foodItemId, quantity: count });
         donatedAny = true;
         totalXp += result?.xpAwarded ?? 0;
         if (result?.newLevel != null) newLevel = result.newLevel;
         if (result?.levelUp) levelUp = true;
+        if (result?.badgesEarned?.length) badgesEarned.push(...result.badgesEarned);
       } catch (error) {
         failedItem =
           error instanceof ApiError && error.serverMessage
@@ -146,7 +151,7 @@ export function FeedCatModal({ visible, catId, onClose, onSuccess }: FeedCatModa
       Alert.alert('Partial donation', `Some food could not be donated.\n${failedItem}`);
     }
     onClose();
-    onSuccess({ xpAwarded: totalXp, newLevel, levelUp });
+    onSuccess({ xpAwarded: totalXp, newLevel, levelUp, badgesEarned });
   }, [inventory, quantities, isDonating, catId, onClose, onSuccess]);
 
   return (
@@ -191,7 +196,7 @@ export function FeedCatModal({ visible, catId, onClose, onSuccess }: FeedCatModa
             ) : inventory.length === 0 ? (
               <View style={styles.centerBox}>
                 <Text style={styles.subtitle}>
-                  You have no food in your inventory. Purchase food from the Wallet screen
+                  You have no food in your inventory. Purchase food from the Shop screen
                   first, then come back to feed this cat.
                 </Text>
               </View>
@@ -241,6 +246,17 @@ export function FeedCatModal({ visible, catId, onClose, onSuccess }: FeedCatModa
                     </View>
                   );
                 })}
+
+                {/* Total credit value of the inventory (Req 10.4) */}
+                <View style={styles.xpPreviewRow}>
+                  <Text style={styles.xpPreviewLabel}>Inventory credit:</Text>
+                  <Text style={styles.xpPreviewValue}>
+                    RM{' '}
+                    {inventory
+                      .reduce((sum, item) => sum + item.priceMyr * item.quantity, 0)
+                      .toFixed(2)}
+                  </Text>
+                </View>
 
                 {/* XP preview */}
                 <View style={styles.xpPreviewRow}>

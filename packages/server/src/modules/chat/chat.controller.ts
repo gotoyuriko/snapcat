@@ -2,17 +2,28 @@ import { Request, Response } from 'express';
 import { z } from 'zod';
 import { ChatService, ForbiddenError } from './chat.service';
 import { broadcastChatMessage } from './chat.gateway';
+import { PhotoStorageService } from '../recognition/photo-storage.service';
 
-const sendMessageSchema = z.object({
-  content: z.string().min(1).max(2000),
-  // Optional photo attachment: host-less path under our own photo route only,
-  // so arbitrary external URLs can't be injected into chat.
-  photoUrl: z
-    .string()
-    .max(500)
-    .regex(/^\/api\/recognition\/photos\//)
-    .optional(),
-});
+const photoStorageService = new PhotoStorageService();
+
+/** Image MIME types accepted for chat photo uploads (Req 8.5). */
+const ALLOWED_IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/heic']);
+
+const sendMessageSchema = z
+  .object({
+    // Req 8.5: a photo-only message may have empty text.
+    content: z.string().max(2000).optional().default(''),
+    // Optional photo attachment: host-less path under our own photo route only,
+    // so arbitrary external URLs can't be injected into chat.
+    photoUrl: z
+      .string()
+      .max(500)
+      .regex(/^\/api\/recognition\/photos\//)
+      .optional(),
+  })
+  .refine((body) => body.content.trim().length > 0 || body.photoUrl != null, {
+    message: 'Message must have text or a photo',
+  });
 
 const getMessagesQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(100).optional().default(50),
@@ -112,6 +123,46 @@ export class ChatController {
       } else {
         res.status(500).json({ error: 'Internal server error' });
       }
+    }
+  }
+
+  /**
+   * POST /cats/:catId/photos
+   * Requirement 8.5: upload an image for sharing in the cat's community
+   * chat. Lvl1+ ownership required — same gate as sending a message. The
+   * stored photo is public community data, served from the cat-photo route,
+   * so the returned URL passes the sendMessage photoUrl allowlist.
+   */
+  async uploadPhoto(req: Request, res: Response): Promise<void> {
+    try {
+      const userId = req.user?.userId;
+      if (!userId) {
+        res.status(401).json({ error: 'Not authenticated' });
+        return;
+      }
+
+      const { catId } = req.params;
+      const isOwner = await this.chatService.isLvl1Owner(userId, catId);
+      if (!isOwner) {
+        res.status(403).json({ error: 'User is not a Lvl1+ owner of this cat' });
+        return;
+      }
+
+      const file = req.file;
+      if (!file) {
+        res.status(400).json({ error: 'No photo uploaded (field name: photo)' });
+        return;
+      }
+      if (!ALLOWED_IMAGE_TYPES.has(file.mimetype)) {
+        res.status(400).json({ error: 'Unsupported image type' });
+        return;
+      }
+
+      const fileName = await photoStorageService.storePhoto(file.buffer);
+      res.status(201).json({ photoUrl: `/api/recognition/photos/${fileName}` });
+    } catch (err) {
+      console.error('Chat photo upload error:', err);
+      res.status(500).json({ error: 'Internal server error' });
     }
   }
 }

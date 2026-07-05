@@ -211,7 +211,7 @@ describe('AlertsService', () => {
       await service.notifyCatOwners('cat-1', 'Sighting', 'Your cat was spotted!', { catId: 'cat-1' });
 
       expect(mockOwnershipFindMany).toHaveBeenCalledWith({
-        where: { catId: 'cat-1', level: { gte: 1 } },
+        where: { catId: 'cat-1', level: { gte: 1 }, revokedAt: null },
         select: { userId: true },
       });
       expect(mockPushSend).toHaveBeenCalledTimes(2);

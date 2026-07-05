@@ -1,17 +1,21 @@
 import { Request, Response } from 'express';
 import { z } from 'zod';
 import crypto from 'crypto';
-import { WalletService } from './wallet.service';
+import { CheckoutService } from './checkout.service';
 import { config } from '../../config';
 
-/** Zod schema for top-up request validation */
-const topUpSchema = z.object({
-  amountCents: z.number().int().positive().max(100_000_00), // Max RM 100,000
-});
-
-/** Zod schema for the temporary test top-up (0 = reset balance) */
-const testTopUpSchema = z.object({
-  amountCents: z.number().int().min(0).max(100_000_00),
+/** Zod schema for checkout request validation */
+const checkoutSchema = z.object({
+  items: z
+    .array(
+      z.object({
+        foodItemId: z.string().uuid(),
+        quantity: z.number().int().min(1).max(100),
+      }),
+    )
+    .min(1),
+  // Optional discount coupon to redeem (Requirement 17.12).
+  couponId: z.string().uuid().optional(),
 });
 
 /** Zod schema for webhook payload validation */
@@ -22,22 +26,24 @@ const webhookSchema = z.object({
 });
 
 /**
- * WalletController
- * Handles wallet top-up and payment webhook endpoints.
+ * CheckoutController
+ * Direct-checkout endpoints (Requirement 10 — no in-app wallet):
+ * checkout creates a payment intent for the exact cart total; the payment
+ * gateway webhook credits the purchased items to the user's inventory.
  */
-export class WalletController {
-  private walletService: WalletService;
+export class CheckoutController {
+  private checkoutService: CheckoutService;
 
-  constructor(walletService?: WalletService) {
-    this.walletService = walletService ?? new WalletService();
+  constructor(checkoutService?: CheckoutService) {
+    this.checkoutService = checkoutService ?? new CheckoutService();
   }
 
   /**
-   * POST /wallet/topup
-   * Initiates a wallet top-up. Requires authentication.
-   * Security scanner (Aikido) is optional — skipped if not available.
+   * POST /checkout
+   * Creates a payment intent for the cart's exact total and returns the
+   * gateway payment URL. Requires authentication.
    */
-  async topUp(req: Request, res: Response): Promise<void> {
+  async checkout(req: Request, res: Response): Promise<void> {
     try {
       const userId = req.user?.userId;
       if (!userId) {
@@ -45,90 +51,69 @@ export class WalletController {
         return;
       }
 
-      // Validate request body
-      const parsed = topUpSchema.safeParse(req.body);
+      const parsed = checkoutSchema.safeParse(req.body);
       if (!parsed.success) {
-        res.status(400).json({ error: 'Invalid request', details: parsed.error.issues });
+        res.status(400).json({ error: 'Validation failed', details: parsed.error.issues });
         return;
       }
 
-      const { amountCents } = parsed.data;
-
       // Security scanner step — Aikido free tier (optional, skip if not available)
-      // In production, this would call the Aikido API to scan the request payload.
-      // Since Aikido free tier may not be available, we skip it gracefully.
       const securityScanPassed = await this.runSecurityScan(req.body);
       if (!securityScanPassed) {
         res.status(403).json({ error: 'Security scan failed' });
         return;
       }
 
-      // Create payment intent via SANDBOX gateway
-      const { paymentUrl, intentId } = await this.walletService.initiateTopUp(userId, amountCents);
+      const { intentId, paymentUrl, totalCents, discountCents, items } =
+        await this.checkoutService.createCheckout(
+          userId,
+          parsed.data.items,
+          parsed.data.couponId,
+        );
 
-      res.status(200).json({ paymentUrl, intentId });
+      res.status(200).json({
+        intentId,
+        paymentUrl,
+        totalMyr: totalCents / 100,
+        discountMyr: discountCents / 100,
+        items: items.map((item) => ({
+          foodItemId: item.foodItemId,
+          name: item.name,
+          priceMyr: item.priceCents / 100,
+          quantity: item.quantity,
+        })),
+      });
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Internal server error';
+
+      if (message === 'Food item not found' || message === 'Coupon not found') {
+        res.status(404).json({ error: message });
+        return;
+      }
+      if (message.startsWith('Coupon')) {
+        // Coupon already used / expired / below minimum purchase (Req 17.12)
+        res.status(400).json({ error: message });
+        return;
+      }
+
       res.status(500).json({ error: message });
     }
   }
 
   /**
-   * POST /wallet/topup/test
-   * TEMPORARY: credits (or resets, if amountCents is 0) the wallet directly,
-   * bypassing the payment gateway. For testing the purchase flow only —
-   * remove once the real payment gate is wired up. Disabled in production.
-   */
-  async testTopUp(req: Request, res: Response): Promise<void> {
-    try {
-      if (process.env.NODE_ENV === 'production') {
-        res.status(403).json({ error: 'Test top-up is disabled in production' });
-        return;
-      }
-
-      const userId = req.user?.userId;
-      if (!userId) {
-        res.status(401).json({ error: 'Unauthorized' });
-        return;
-      }
-
-      const parsed = testTopUpSchema.safeParse(req.body);
-      if (!parsed.success) {
-        res.status(400).json({ error: 'Invalid request', details: parsed.error.issues });
-        return;
-      }
-
-      const { amountCents } = parsed.data;
-
-      if (amountCents === 0) {
-        await this.walletService.setBalance(userId, 0);
-      } else {
-        await this.walletService.credit(userId, amountCents, 'test-topup');
-      }
-
-      const balance = await this.walletService.getBalance(userId);
-      res.status(200).json({ balance });
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Internal server error';
-      res.status(500).json({ error: message });
-    }
-  }
-
-  /**
-   * POST /wallet/webhook
+   * POST /checkout/webhook
    * Handles payment gateway webhook callbacks.
-   * Validates signature → credits wallet idempotently.
+   * Signature verification is a mandatory precondition (Requirement 15.5);
+   * on payment_success the cart is credited to inventory idempotently.
    */
   async webhook(req: Request, res: Response): Promise<void> {
     try {
-      // Validate webhook signature (Requirement 15.5)
       const signatureValid = this.validateWebhookSignature(req);
       if (!signatureValid) {
         res.status(401).json({ error: 'Invalid webhook signature' });
         return;
       }
 
-      // Validate webhook payload
       const parsed = webhookSchema.safeParse(req.body);
       if (!parsed.success) {
         res.status(400).json({ error: 'Invalid webhook payload', details: parsed.error.issues });
@@ -137,13 +122,12 @@ export class WalletController {
 
       const { intentId } = parsed.data;
 
-      // Process the top-up confirmation (idempotent)
-      const credited = await this.walletService.confirmTopUp(intentId);
+      const fulfilled = await this.checkoutService.fulfillCheckout(intentId);
 
-      if (credited) {
-        res.status(200).json({ status: 'credited', intentId });
+      if (fulfilled) {
+        res.status(200).json({ status: 'fulfilled', intentId });
       } else {
-        // Already processed — idempotent response (Error Scenario 7)
+        // Already processed — idempotent response
         res.status(200).json({ status: 'already_processed', intentId });
       }
     } catch (error) {
@@ -159,19 +143,43 @@ export class WalletController {
   }
 
   /**
-   * GET /wallet/balance
-   * Returns the current wallet balance for the authenticated user.
+   * POST /checkout/:intentId/simulate-payment
+   * SANDBOX ONLY: completes a pending payment without a real gateway so the
+   * purchase flow can be exercised end-to-end. The intent must belong to the
+   * authenticated user. Disabled in production — real fulfilment arrives via
+   * the signed gateway webhook.
    */
-  async getBalance(req: Request, res: Response): Promise<void> {
+  async simulatePayment(req: Request, res: Response): Promise<void> {
     try {
+      if (process.env.NODE_ENV === 'production') {
+        res.status(403).json({ error: 'Sandbox payment simulation is disabled in production' });
+        return;
+      }
+
       const userId = req.user?.userId;
       if (!userId) {
         res.status(401).json({ error: 'Unauthorized' });
         return;
       }
 
-      const balance = await this.walletService.getBalance(userId);
-      res.status(200).json({ balance });
+      const intentId = req.params.intentId;
+      const intent = this.checkoutService.getIntent(intentId);
+
+      if (!intent) {
+        res.status(404).json({ error: 'Payment intent not found' });
+        return;
+      }
+      if (intent.userId !== userId) {
+        res.status(403).json({ error: 'Payment intent does not belong to this user' });
+        return;
+      }
+
+      const fulfilled = await this.checkoutService.fulfillCheckout(intentId);
+
+      res.status(200).json({
+        status: fulfilled ? 'fulfilled' : 'already_processed',
+        intentId,
+      });
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Internal server error';
       res.status(500).json({ error: message });
@@ -186,7 +194,6 @@ export class WalletController {
   private async runSecurityScan(_payload: unknown): Promise<boolean> {
     // Aikido security scanner — optional free tier
     // If Aikido is not configured, skip the scan gracefully
-    // In production: POST to Aikido API with payload for threat detection
     // For SANDBOX mode, we always pass
     return true;
   }
@@ -202,7 +209,6 @@ export class WalletController {
       return false;
     }
 
-    // Compute expected signature using HMAC-SHA256
     const webhookSecret = config.paymentWebhookSecret;
     const payload = JSON.stringify(req.body);
     const expectedSignature = crypto

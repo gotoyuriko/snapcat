@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
 import { GamificationService, LEVEL_REWARDS } from './gamification.service';
+import { LevelRewardsService } from './level-rewards.service';
 
 const prisma = new PrismaClient();
 
@@ -10,9 +11,35 @@ const prisma = new PrismaClient();
  */
 export class GamificationController {
   private gamificationService: GamificationService;
+  private levelRewardsService: LevelRewardsService;
 
-  constructor(gamificationService?: GamificationService) {
+  constructor(
+    gamificationService?: GamificationService,
+    levelRewardsService?: LevelRewardsService,
+  ) {
     this.gamificationService = gamificationService ?? new GamificationService(prisma);
+    this.levelRewardsService = levelRewardsService ?? new LevelRewardsService(prisma);
+  }
+
+  /**
+   * GET /gamification/rewards
+   * Requirement 17.11: the authenticated user's earned level rewards and
+   * discount coupons (with live active/used/expired status).
+   */
+  async getRewards(req: Request, res: Response): Promise<void> {
+    try {
+      const userId = req.user?.userId;
+      if (!userId) {
+        res.status(401).json({ error: 'Unauthorized' });
+        return;
+      }
+
+      const rewards = await this.levelRewardsService.getRewards(userId);
+      res.status(200).json(rewards);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Internal server error';
+      res.status(500).json({ error: message });
+    }
   }
 
   /**
@@ -63,6 +90,27 @@ export class GamificationController {
       }
 
       const result = await this.gamificationService.getUserBadges(userId);
+      res.status(200).json(result);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Internal server error';
+      res.status(500).json({ error: message });
+    }
+  }
+
+  /**
+   * GET /gamification/badges/catalogue
+   * Requirement 18.6: all available badges with unlock criteria and the
+   * user's current progress toward each.
+   */
+  async getBadgeCatalogue(req: Request, res: Response): Promise<void> {
+    try {
+      const userId = req.user?.userId;
+      if (!userId) {
+        res.status(401).json({ error: 'Unauthorized' });
+        return;
+      }
+
+      const result = await this.gamificationService.getBadgeCatalogue(userId);
       res.status(200).json(result);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Internal server error';

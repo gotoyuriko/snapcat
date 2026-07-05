@@ -11,6 +11,6 @@ export const foodItemRoutes = Router();
 // (rate limiting, input sanitization, security headers)
 foodItemRoutes.use(financialSecurityMiddleware);
 
-// All endpoints require authentication
+// All endpoints require authentication.
+// Purchasing lives under /checkout (direct payment, no wallet).
 foodItemRoutes.get('/', authMiddleware, (req, res) => controller.getAll(req, res));
-foodItemRoutes.post('/purchase', authMiddleware, (req, res) => controller.purchase(req, res));

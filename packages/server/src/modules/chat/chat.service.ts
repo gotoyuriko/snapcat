@@ -14,7 +14,8 @@ export interface ChatMessageRecord {
 export class ChatService {
   /**
    * Check if a user is a Lvl1+ owner of a cat.
-   * Returns true if ownership exists with level >= 1.
+   * Returns true if ownership exists with level >= 1 and is not revoked
+   * for inactivity (Requirement 16.2).
    */
   async isLvl1Owner(userId: string, catId: string): Promise<boolean> {
     const ownership = await prisma.ownership.findUnique({
@@ -22,7 +23,7 @@ export class ChatService {
         userId_catId: { userId, catId },
       },
     });
-    return ownership !== null && ownership.level >= 1;
+    return ownership !== null && ownership.level >= 1 && ownership.revokedAt == null;
   }
 
   /**

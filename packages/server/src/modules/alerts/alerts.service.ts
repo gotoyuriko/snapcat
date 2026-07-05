@@ -108,8 +108,9 @@ export class AlertsService {
     body: string,
     data?: Record<string, string>,
   ): Promise<void> {
+    // Revoked owners lose notifications (Requirement 16.2).
     const owners = await this.prisma.ownership.findMany({
-      where: { catId, level: { gte: 1 } },
+      where: { catId, level: { gte: 1 }, revokedAt: null },
       select: { userId: true },
     });
 

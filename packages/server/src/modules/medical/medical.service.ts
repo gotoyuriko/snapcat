@@ -160,6 +160,25 @@ export class MedicalService {
     });
   }
 
+  /**
+   * The requester's own requests for ONE cat — powers the cat-profile
+   * medical status list.
+   */
+  async getUserRequestsForCat(requesterId: string, catId: string) {
+    return prisma.medicalRequest.findMany({
+      where: { requesterId, catId },
+      orderBy: { createdAt: 'desc' },
+      select: {
+        id: true,
+        type: true,
+        reason: true,
+        status: true,
+        createdAt: true,
+        partner: { select: { name: true, type: true } },
+      },
+    });
+  }
+
   /** One request with its full stage trail — only the requester may view it. */
   async getRequestDetail(requestId: string, requesterId: string) {
     const request = await prisma.medicalRequest.findUnique({

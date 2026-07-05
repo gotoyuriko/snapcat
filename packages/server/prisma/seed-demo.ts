@@ -330,7 +330,7 @@ async function main() {
         ['in_progress', 'Salon agreed to cooperate — service must be completed within 30 days', 15],
         ['in_progress', 'Owner submitted receipt (RM 80.00) and 2 photo(s) — waiting for the partner\'s proof', 10],
         ['in_progress', 'Partner proof (invoice) received from the salon', 9],
-        ['reimbursed', 'Documentation verified on both sides — reimbursement sent to your wallet', 9],
+        ['reimbursed', 'Documentation verified on both sides — reimbursement released from the community pool', 9],
       ],
     },
     {
@@ -421,12 +421,6 @@ async function main() {
       });
     }
   }
-
-  // Reflect the completed reimbursement in the wallet.
-  await prisma.user.update({
-    where: { id: user.id },
-    data: { walletBalance: { increment: 8000 } },
-  });
 
   console.log(`Created ${CATS.length} showcase cats, ${donations.length} donations, ${requests.length} care requests for ${TARGET_EMAIL}.`);
   console.log('Owned: Oyen L10 (diamond), Snowy L7 (gold), Milo L5 (silver), Luna L3 (bronze), Bella L1 · Discovered: Toby · Nearby: Ghost, Mimi');
