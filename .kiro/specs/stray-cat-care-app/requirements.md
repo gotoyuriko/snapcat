@@ -2,14 +2,14 @@
 
 ## Introduction
 
-CodingKitty is a community-driven stray cat care app for Malaysia. Users discover stray cats via an AI-powered camera scan (YOLO detection + MegaDescriptor re-ID), build a contribution ladder through sightings and donations, and unlock care features (community chat, medical/grooming requests) as they deepen their involvement with individual cats. The backend is a modular monolith; durable workflows (Temporal) govern multi-step financial operations.
+SnapCat is a community-driven stray cat care app for Malaysia. Users discover stray cats via an AI-powered camera scan (YOLO detection + MegaDescriptor re-ID), build a contribution ladder through sightings and donations, and unlock care features (community chat, medical/grooming requests) as they deepen their involvement with individual cats. The backend is a modular monolith; durable workflows (Temporal) govern multi-step financial operations.
 
 ---
 
 ## Glossary
 
-- **System**: The CodingKitty modular monolith backend plus React Native client, acting together.
-- **User**: An authenticated CodingKitty app user.
+- **System**: The SnapCat modular monolith backend plus React Native client, acting together.
+- **User**: An authenticated SnapCat app user.
 - **Cat**: A registered stray cat profile in the system.
 - **Sighting**: A geo-tagged observation of a cat, recorded after a successful scan or manual report.
 - **Recognition_Pipeline**: The two-stage AI pipeline: YOLO detection followed by MegaDescriptor re-identification.
@@ -19,7 +19,7 @@ CodingKitty is a community-driven stray cat care app for Malaysia. Users discove
 - **Wallet**: (Removed — the app does not maintain an in-app wallet; purchases go directly through the payment gateway at checkout.)
 - **MedicalRequest**: A request by an Owner (Lvl7+) for veterinary or grooming care for a cat, subject to three-party verification.
 - **Temporal_Worker**: The Temporal workflow engine that executes durable, multi-step workflows.
-- **Partner**: A verified veterinary clinic or pet grooming salon that has been registered and verified by the app's staff team; collaborates with CodingKitty to provide reimbursable medical/grooming services to stray cats.
+- **Partner**: A verified veterinary clinic or pet grooming salon that has been registered and verified by the app's staff team; collaborates with SnapCat to provide reimbursable medical/grooming services to stray cats.
 - **XP**: Experience points accumulated by a User per cat or globally.
 - **Undiscovered User**: A User who has never scanned a particular Cat; can only see the Cat's silhouette and approximate area on the map or in Catpedia.
 - **Discovered User (Lvl0)**: A User who has scanned and registered a Cat in their Catpedia; can view the Cat's name, photo, description, sighting history, and a teaser of the owner community chat, but cannot send messages or access the full chat.

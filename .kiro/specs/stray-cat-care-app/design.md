@@ -1,8 +1,8 @@
-# Design Document: CodingKitty
+# Design Document: SnapCat
 
 ## Overview
 
-CodingKitty is a community-driven stray cat care app for Malaysia, styled after Pokémon GO. A live geo-map is the hub: undiscovered cats appear as silhouettes at their last-known approximate location (geo-fuzzed ±100–200 m). Users travel to a cat, scan it with their camera, and the AI pipeline (YOLO detection + MegaDescriptor re-ID) either reveals an existing cat or registers a new one. Discovering, funding, and caring for cats forms a contribution ladder that unlocks community chat, medical/grooming requests, and in-app cosmetics.
+SnapCat is a community-driven stray cat care app for Malaysia, styled after Pokémon GO. A live geo-map is the hub: undiscovered cats appear as silhouettes at their last-known approximate location (geo-fuzzed ±100–200 m). Users travel to a cat, scan it with their camera, and the AI pipeline (YOLO detection + MegaDescriptor re-ID) either reveals an existing cat or registers a new one. Discovering, funding, and caring for cats forms a contribution ladder that unlocks community chat, medical/grooming requests, and in-app cosmetics.
 
 The backend is a **modular monolith**: a single deployable with clearly separated modules — Auth, Recognition, Sighting/Location, Gamification, Donation/Wallet, Medical, Alerts, and Staff-Verification — connected by internal service interfaces, not network calls. Durable workflows (Temporal) handle multi-step operations such as medical reimbursement and donation escrow.
 
