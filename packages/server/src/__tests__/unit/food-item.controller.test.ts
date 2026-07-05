@@ -4,14 +4,12 @@ import { FoodItemController } from '../../modules/donation/food-item.controller'
 // Mock FoodItemService
 const mockGetAll = jest.fn();
 const mockGetUserInventory = jest.fn();
-const mockPurchase = jest.fn();
 
 jest.mock('../../modules/donation/food-item.service', () => {
   return {
     FoodItemService: jest.fn().mockImplementation(() => ({
       getAll: mockGetAll,
       getUserInventory: mockGetUserInventory,
-      purchase: mockPurchase,
     })),
   };
 });
@@ -91,126 +89,6 @@ describe('FoodItemController', () => {
 
       expect(res.statusCode).toBe(500);
       expect(res.body.error).toBe('DB error');
-    });
-  });
-
-  describe('POST /food-items/purchase', () => {
-    it('returns 401 if user is not authenticated', async () => {
-      const req = createMockReq({ user: undefined, body: { foodItemId: 'item-1', quantity: 1 } });
-      const res = createMockRes();
-
-      await controller.purchase(req as Request, res as Response);
-
-      expect(res.statusCode).toBe(401);
-      expect(res.body.error).toBe('Unauthorized');
-    });
-
-    it('returns 400 if foodItemId is missing', async () => {
-      const req = createMockReq({ body: { quantity: 1 } });
-      const res = createMockRes();
-
-      await controller.purchase(req as Request, res as Response);
-
-      expect(res.statusCode).toBe(400);
-      expect(res.body.error).toBe('Validation failed');
-    });
-
-    it('returns 400 if foodItemId is not a valid UUID', async () => {
-      const req = createMockReq({ body: { foodItemId: 'not-a-uuid', quantity: 1 } });
-      const res = createMockRes();
-
-      await controller.purchase(req as Request, res as Response);
-
-      expect(res.statusCode).toBe(400);
-      expect(res.body.error).toBe('Validation failed');
-    });
-
-    it('returns 400 if quantity is zero', async () => {
-      const req = createMockReq({
-        body: { foodItemId: '550e8400-e29b-41d4-a716-446655440000', quantity: 0 },
-      });
-      const res = createMockRes();
-
-      await controller.purchase(req as Request, res as Response);
-
-      expect(res.statusCode).toBe(400);
-      expect(res.body.error).toBe('Validation failed');
-    });
-
-    it('returns 400 if quantity is negative', async () => {
-      const req = createMockReq({
-        body: { foodItemId: '550e8400-e29b-41d4-a716-446655440000', quantity: -1 },
-      });
-      const res = createMockRes();
-
-      await controller.purchase(req as Request, res as Response);
-
-      expect(res.statusCode).toBe(400);
-      expect(res.body.error).toBe('Validation failed');
-    });
-
-    it('returns 400 if wallet balance is insufficient', async () => {
-      mockPurchase.mockRejectedValue(new Error('Insufficient wallet balance'));
-
-      const req = createMockReq({
-        body: { foodItemId: '550e8400-e29b-41d4-a716-446655440000', quantity: 1 },
-      });
-      const res = createMockRes();
-
-      await controller.purchase(req as Request, res as Response);
-
-      expect(res.statusCode).toBe(400);
-      expect(res.body.error).toBe('Insufficient wallet balance');
-    });
-
-    it('returns 404 if food item does not exist', async () => {
-      mockPurchase.mockRejectedValue(new Error('Food item not found'));
-
-      const req = createMockReq({
-        body: { foodItemId: '550e8400-e29b-41d4-a716-446655440000', quantity: 1 },
-      });
-      const res = createMockRes();
-
-      await controller.purchase(req as Request, res as Response);
-
-      expect(res.statusCode).toBe(404);
-      expect(res.body.error).toBe('Food item not found');
-    });
-
-    it('returns 200 with inventory record on successful purchase', async () => {
-      const mockResult = {
-        userId: 'user-1',
-        foodItemId: '550e8400-e29b-41d4-a716-446655440000',
-        quantity: 2,
-        foodItem: { id: '550e8400-e29b-41d4-a716-446655440000', name: 'Cat Kibble', priceCents: 100 },
-      };
-      mockPurchase.mockResolvedValue(mockResult);
-
-      const req = createMockReq({
-        body: { foodItemId: '550e8400-e29b-41d4-a716-446655440000', quantity: 2 },
-      });
-      const res = createMockRes();
-
-      await controller.purchase(req as Request, res as Response);
-
-      expect(res.statusCode).toBe(200);
-      expect(res.body.message).toBe('Purchase successful');
-      expect(res.body.inventory).toEqual(mockResult);
-      expect(mockPurchase).toHaveBeenCalledWith('user-1', '550e8400-e29b-41d4-a716-446655440000', 2);
-    });
-
-    it('returns 500 on unexpected error', async () => {
-      mockPurchase.mockRejectedValue(new Error('DB connection lost'));
-
-      const req = createMockReq({
-        body: { foodItemId: '550e8400-e29b-41d4-a716-446655440000', quantity: 1 },
-      });
-      const res = createMockRes();
-
-      await controller.purchase(req as Request, res as Response);
-
-      expect(res.statusCode).toBe(500);
-      expect(res.body.error).toBe('DB connection lost');
     });
   });
 });

@@ -27,10 +27,6 @@ interface UserStats {
   rank: number;
 }
 
-interface WalletInfo {
-  balance: number; // MYR cents
-}
-
 interface Badge {
   id: string;
   title: string;
@@ -68,7 +64,6 @@ export function ProfileScreen() {
 
   const [stats, setStats] = useState<UserStats | null>(null);
   const [badges, setBadges] = useState<Badge[]>([]);
-  const [balanceMyr, setBalanceMyr] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
 
@@ -76,13 +71,11 @@ export function ProfileScreen() {
     setLoading(true);
     setError(false);
     try {
-      const [statsData, wallet, badgeData] = await Promise.all([
+      const [statsData, badgeData] = await Promise.all([
         api.get<UserStats>('/gamification/stats'),
-        api.get<WalletInfo>('/wallet/balance'),
         api.get<{ badges: Badge[] }>('/gamification/badges'),
       ]);
       setStats(statsData);
-      setBalanceMyr(wallet.balance / 100);
       setBadges(badgeData.badges);
     } catch {
       setError(true);
@@ -257,13 +250,6 @@ export function ProfileScreen() {
                 ))}
               </View>
             )}
-          </View>
-
-          <View style={styles.card}>
-            <Text style={styles.cardLabel}>Wallet Balance</Text>
-            <Text style={styles.cardValue}>
-              {balanceMyr != null ? `RM ${balanceMyr.toFixed(2)}` : '—'}
-            </Text>
           </View>
 
           <View style={styles.menuCard}>

@@ -6,7 +6,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useCameraPermissions } from 'expo-camera';
 import { MapScreen } from '../screens/MapScreen';
 import { CatpediaScreen } from '../screens/CatpediaScreen';
-import { WalletScreen } from '../screens/WalletScreen';
+import { ShopScreen } from '../screens/ShopScreen';
 
 const Tab = createBottomTabNavigator();
 
@@ -14,7 +14,7 @@ function CustomTabBar({ state, navigation }: BottomTabBarProps) {
   const activeName = state.routes[state.index].name;
   const isCatpedia = activeName === 'Catpedia';
   const isMap = activeName === 'Map';
-  const isWallet = activeName === 'Wallet';
+  const isShop = activeName === 'Shop';
 
   // Requirement 1.4: the scan button is disabled while camera permission is
   // denied. Tapping the greyed-out button re-requests when the OS still allows
@@ -72,14 +72,14 @@ function CustomTabBar({ state, navigation }: BottomTabBarProps) {
           <Text style={[styles.label, isMap && styles.labelActive]}>Map</Text>
         </TouchableOpacity>
 
-        {/* Donation Wallet — right */}
+        {/* Donation Shop — right */}
         <TouchableOpacity
           style={styles.tabItem}
-          onPress={() => navigation.navigate('Wallet')}
+          onPress={() => navigation.navigate('Shop')}
           activeOpacity={0.7}
         >
-          <Ionicons name="wallet" size={24} color={isWallet ? '#FF6B35' : '#9E9E9E'} />
-          <Text style={[styles.label, isWallet && styles.labelActive]}>Wallet</Text>
+          <Ionicons name="cart" size={24} color={isShop ? '#FF6B35' : '#9E9E9E'} />
+          <Text style={[styles.label, isShop && styles.labelActive]}>Shop</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -95,7 +95,7 @@ export function MainTabs() {
     >
       <Tab.Screen name="Map" component={MapScreen} />
       <Tab.Screen name="Catpedia" component={CatpediaScreen} />
-      <Tab.Screen name="Wallet" component={WalletScreen} />
+      <Tab.Screen name="Shop" component={ShopScreen} />
     </Tab.Navigator>
   );
 }

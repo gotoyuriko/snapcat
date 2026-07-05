@@ -140,7 +140,7 @@ interface FallbackDonationScreenProps {
   onCancel: () => void;
 }
 
-/** Slice of the GET /food-items response this screen needs (same shape as WalletScreen). */
+/** Slice of the GET /food-items response this screen needs (same shape as ShopScreen). */
 interface InventoryItem {
   foodItemId: string;
   name: string;
@@ -221,7 +221,7 @@ function FallbackDonationScreen({
       <View style={styles.fallbackContainer}>
         <Text style={styles.fallbackTitle}>Feed This Cat</Text>
         <Text style={styles.fallbackSubtitle}>
-          You have no food in your inventory. Purchase food from the Wallet
+          You have no food in your inventory. Purchase food from the Shop
           screen first, then come back to feed this cat.
         </Text>
         <TouchableOpacity

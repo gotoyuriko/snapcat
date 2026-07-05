@@ -87,7 +87,7 @@ export class DonationService {
           foodItemId,
           foodItem: quantity > 1 ? `${foodItem.name} ×${quantity}` : foodItem.name,
           amountCents: foodItem.priceCents * quantity,
-          source: 'wallet',
+          source: 'inventory',
           status: 'escrowed',
           workflowId: '', // Will be updated after workflow starts
         },

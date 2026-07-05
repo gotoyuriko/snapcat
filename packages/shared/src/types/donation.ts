@@ -1,7 +1,7 @@
 import { UUID } from './user';
 
 /** Source of the donation funds */
-export type DonationSource = 'wallet' | 'direct_payment';
+export type DonationSource = 'inventory' | 'direct_payment';
 
 /** Status of a donation workflow */
 export type DonationStatus = 'pending' | 'escrowed' | 'delivered' | 'refunded' | 'cancelled';

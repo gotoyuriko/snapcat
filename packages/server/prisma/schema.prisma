@@ -18,7 +18,6 @@ model User {
   displayName   String
   passwordHash  String
   xp            Int      @default(0)
-  walletBalance Int      @default(0) // MYR cents
   createdAt     DateTime @default(now())
 
   // Relations

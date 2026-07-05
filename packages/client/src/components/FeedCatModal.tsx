@@ -191,7 +191,7 @@ export function FeedCatModal({ visible, catId, onClose, onSuccess }: FeedCatModa
             ) : inventory.length === 0 ? (
               <View style={styles.centerBox}>
                 <Text style={styles.subtitle}>
-                  You have no food in your inventory. Purchase food from the Wallet screen
+                  You have no food in your inventory. Purchase food from the Shop screen
                   first, then come back to feed this cat.
                 </Text>
               </View>

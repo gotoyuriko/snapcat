@@ -2,7 +2,7 @@ import { Donation } from '@codingkitty/shared';
 
 /**
  * Donation Module
- * Handles food donations with wallet/escrow workflow via Temporal.
+ * Handles food purchases (direct checkout) and donations with escrow workflow via Temporal.
  */
 
 export interface DonationModule {
@@ -19,9 +19,9 @@ export interface DonationModule {
 export { DonationService } from './donation.service';
 export { DonationController } from './donation.controller';
 export { donationRoutes } from './donation.routes';
-export { WalletService } from './wallet.service';
-export { WalletController } from './wallet.controller';
-export { walletRoutes } from './wallet.routes';
+export { CheckoutService } from './checkout.service';
+export { CheckoutController } from './checkout.controller';
+export { checkoutRoutes } from './checkout.routes';
 export { FoodItemService } from './food-item.service';
 export { FoodItemController } from './food-item.controller';
 export { foodItemRoutes } from './food-item.routes';
