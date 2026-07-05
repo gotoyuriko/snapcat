@@ -2,7 +2,23 @@
 
 **A [Hack The Kitty](https://hackthekitty.com/) hackathon project.**
 
-SnapCat is a community-driven stray cat care platform for Malaysia, styled after Pokémon GO. Stray cats appear as silhouettes on a live map — walk up, scan one with your camera, and a two-stage AI pipeline (YOLO detection + MegaDescriptor re-identification) either recognises a known cat or registers a new one. Caring for cats builds a per-cat contribution ladder that unlocks community features as you level up.
+SnapCat is a community-driven stray cat care platform for Malaysia. Stray cats appear as silhouettes on a live map — walk up, scan one with your camera, and a two-stage AI pipeline (YOLO detection + MegaDescriptor re-identification) either recognises a known cat or registers a new one. Caring for cats builds a per-cat contribution ladder that unlocks community features as you level up.
+
+## Demo
+
+<!-- TODO: add a 2–3 min demo video link here -->
+📺 **Demo video:** _coming soon_
+
+| Live map | Scan a cat | Cat profile |
+| --- | --- | --- |
+| <!-- screenshot --> | <!-- screenshot --> | <!-- screenshot --> |
+
+| Community chat | Care request | Badges & rewards |
+| --- | --- | --- |
+| <!-- screenshot --> | <!-- screenshot --> | <!-- screenshot --> |
+
+<!-- Drop screenshots into docs/screenshots/ and reference them like:
+     <img src="docs/screenshots/map.png" width="240"> -->
 
 ## Features
 
@@ -17,6 +33,30 @@ SnapCat is a community-driven stray cat care platform for Malaysia, styled after
 - **Security hardening** — GPS response guard middleware, JWT auth with rotating refresh tokens, continuous dependency/SAST scanning (Aikido), property-based tests with fast-check
 
 ## Architecture
+
+```mermaid
+flowchart LR
+    subgraph Phone
+        APP[React Native app<br/>Expo]
+    end
+    subgraph Backend
+        API[Express API<br/>+ Socket.io]
+        WORKER[Temporal worker<br/>care-request & donation workflows]
+    end
+    subgraph Services
+        DB[(PostgreSQL<br/>PostGIS + pgvector)]
+        TEMPORAL[Temporal]
+        MINIO[(MinIO<br/>object storage)]
+        AI[Inference service<br/>YOLO + MegaDescriptor]
+    end
+    APP -->|REST + WebSocket| API
+    API --> DB
+    API --> MINIO
+    API -->|scan photos| AI
+    API -->|start workflows| TEMPORAL
+    TEMPORAL --> WORKER
+    WORKER --> DB
+```
 
 Monorepo with three packages:
 
@@ -119,6 +159,13 @@ codingkitty/
 └── tsconfig.base.json   # Shared TS config
 ```
 
+## Team
+
+Built for [Hack The Kitty](https://hackthekitty.com/) by:
+
+- [Yuriko Goto](https://github.com/gotoyuriko) — @gotoyuriko
+- [Christian Jandra](https://github.com/christjandra15) — @christjandra15
+
 ## License
 
-Private — All rights reserved.
+Source-available for Hack The Kitty judging and review.
