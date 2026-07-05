@@ -19,6 +19,8 @@ jobs:
       DATABASE_URL: postgresql://postgres:postgres@localhost:5433/codingkitty
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       - name: Start database
         working-directory: .
