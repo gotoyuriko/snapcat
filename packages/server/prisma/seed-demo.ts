@@ -51,7 +51,7 @@ async function clearUserCatData(userId: string) {
     where: { OR: [{ requesterId: userId }, { catId: { in: catIds } }] },
   });
   await prisma.chatMessage.deleteMany({
-    where: { OR: [{ senderId: userId }, { catId: { in: catIds } }] },
+    where: { OR: [{ senderId: { equals: userId } }, { catId: { in: catIds } }] },
   });
   await prisma.donationXpLog.deleteMany({
     where: { OR: [{ userId }, { catId: { in: catIds } }] },
@@ -66,7 +66,7 @@ async function clearUserCatData(userId: string) {
     where: { OR: [{ reporterId: userId }, { catId: { in: catIds } }] },
   });
   await prisma.ownership.deleteMany({
-    where: { OR: [{ userId }, { catId: { in: catIds } }] },
+    where: { OR: [{ userId: { equals: userId } }, { catId: { in: catIds } }] },
   });
   await prisma.userCatDiscovery.deleteMany({
     where: { OR: [{ userId }, { catId: { in: catIds } }] },
