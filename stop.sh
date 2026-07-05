@@ -8,9 +8,9 @@ echo "stopping expo/metro..."
 pkill -9 -f 'expo start' 2>/dev/null || true
 
 echo "stopping API server..."
-pkill -9 -f 'ts-node-dev.*packages/server' 2>/dev/null || true
+pkill -9 -f 'ts-node-dev/lib/wrap.js src/index.ts' 2>/dev/null || true
 
 echo "stopping Temporal worker..."
-pkill -9 -f 'ts-node.*workflows/worker' 2>/dev/null || true
+pkill -9 -f 'ts-node src/workflows/worker.ts' 2>/dev/null || true
 
 echo "done. (Docker services still running — 'docker compose down' to stop those too)"

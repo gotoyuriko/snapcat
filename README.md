@@ -22,6 +22,16 @@ Monorepo with three packages:
 
 ## Getting Started
 
+### Quick start (macOS / Linux / Windows with Git Bash)
+
+```bash
+./setup.sh
+```
+
+One command does everything: checks prerequisites, installs dependencies, starts Docker services, applies migrations, seeds base data, and launches the API server, Temporal worker, and the mobile app. It prints the `exp://` URL to open in Expo Go when done. Stop everything with `./stop.sh`.
+
+On Windows without Git Bash, follow the manual steps below instead.
+
 ### Prerequisites
 
 - Node.js 20+

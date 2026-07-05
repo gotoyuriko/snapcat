@@ -77,8 +77,10 @@ ok "Base data seeded"
 # 4. Start the app
 # ---------------------------------------------------------------------------
 say "Stopping any previous run..."
-pkill -9 -f 'ts-node-dev.*packages/server' 2>/dev/null || true
-pkill -9 -f 'ts-node.*workflows/worker' 2>/dev/null || true
+# ts-node-dev's outer wrapper exits right after spawning the actual server
+# process, so match the inner wrap.js invocation that's actually still alive.
+pkill -9 -f 'ts-node-dev/lib/wrap.js src/index.ts' 2>/dev/null || true
+pkill -9 -f 'ts-node src/workflows/worker.ts' 2>/dev/null || true
 pkill -9 -f 'expo start' 2>/dev/null || true
 sleep 1
 
@@ -102,13 +104,23 @@ for _ in $(seq 1 30); do
 done
 
 say "Starting Expo (LAN mode)..."
-(cd "$ROOT/packages/client" && EXPO_PUBLIC_API_URL="http://$LAN_IP:3000" nohup npx expo start > "$LOG_DIR/expo.log" 2>&1 &)
+METRO_PORT=8081
+# Expo's own LAN-IP auto-detection is unreliable under WSL2/some VM setups and
+# can report 127.0.0.1 even with --host lan, so force the hostname explicitly
+# (same fix packages/client/start-tunnel.sh uses for its tunnel URL).
+(cd "$ROOT/packages/client" && \
+  EXPO_PUBLIC_API_URL="http://$LAN_IP:3000" \
+  REACT_NATIVE_PACKAGER_HOSTNAME="$LAN_IP" \
+  nohup npx expo start --port "$METRO_PORT" > "$LOG_DIR/expo.log" 2>&1 &)
 
-say "Waiting for Metro to print the app URL..."
+say "Waiting for Metro to come up..."
 METRO_URL=""
 for _ in $(seq 1 40); do
-  METRO_URL="$(grep -oE 'exp://[0-9.]+:[0-9]+' "$LOG_DIR/expo.log" 2>/dev/null | head -1)"
-  [[ -n "$METRO_URL" ]] && break
+  # The Expo CLI's own QR/URL banner only renders through its interactive
+  # terminal UI and never reaches a redirected log file, so read the app URL
+  # straight from Metro's manifest endpoint instead of scraping CLI output.
+  HOST_URI="$(curl -sS -m 1 "http://127.0.0.1:$METRO_PORT" 2>/dev/null | grep -oE '"hostUri":"[^"]*"' | cut -d'"' -f4)"
+  [[ -n "$HOST_URI" ]] && { METRO_URL="exp://$HOST_URI"; break; }
   sleep 1
 done
 
@@ -120,12 +132,12 @@ echo "  Temporal worker:  logs/worker.log"
 if [[ -n "$METRO_URL" ]]; then
   echo "  Mobile app:       $METRO_URL"
   echo ""
-  echo "  Open Expo Go on your phone (same Wi-Fi network) and scan the QR"
-  echo "  code below, or enter the URL above manually:"
-  echo ""
-  grep -A 40 "Metro waiting" "$LOG_DIR/expo.log" 2>/dev/null | sed -n '/█/,/^$/p' || cat "$LOG_DIR/expo.log" | tail -40
+  echo "  Open Expo Go on your phone (same Wi-Fi network) and enter the URL"
+  echo "  above manually, or run 'npx expo start' yourself in packages/client"
+  echo "  to get a scannable QR code."
 else
-  echo "  Mobile app:       still starting — check logs/expo.log for the QR code"
+  echo "  Mobile app:       still starting — check logs/expo.log, or run"
+  echo "                     'curl http://localhost:$METRO_PORT' for the manifest"
 fi
 echo ""
 echo "  Phone can't reach $LAN_IP? Your network may isolate devices —"
