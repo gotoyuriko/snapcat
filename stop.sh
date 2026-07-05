@@ -4,13 +4,25 @@
 # with `docker compose down` if you want to fully tear down.
 set -uo pipefail
 
+# Git Bash on Windows has no pkill — fall back to PowerShell there.
+kill_matching() {
+  local pattern="$1"
+  if command -v pkill >/dev/null 2>&1; then
+    pkill -9 -f "$pattern" 2>/dev/null || true
+  else
+    powershell.exe -NoProfile -Command \
+      "Get-CimInstance Win32_Process -Filter \"Name='node.exe'\" | Where-Object { \$_.CommandLine -match '$pattern' } | ForEach-Object { Stop-Process -Id \$_.ProcessId -Force -ErrorAction SilentlyContinue }" \
+      2>/dev/null || true
+  fi
+}
+
 echo "stopping expo/metro..."
-pkill -9 -f 'expo start' 2>/dev/null || true
+kill_matching 'expo start'
 
 echo "stopping API server..."
-pkill -9 -f 'ts-node-dev/lib/wrap.js src/index.ts' 2>/dev/null || true
+kill_matching 'ts-node-dev'
 
 echo "stopping Temporal worker..."
-pkill -9 -f 'ts-node src/workflows/worker.ts' 2>/dev/null || true
+kill_matching 'worker\.ts'
 
 echo "done. (Docker services still running — 'docker compose down' to stop those too)"

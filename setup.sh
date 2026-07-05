@@ -23,6 +23,20 @@ say() { echo "▶ $1"; }
 ok()  { echo "✔ $1"; }
 die() { echo "✖ $1" >&2; exit 1; }
 
+# Kill processes whose command line matches a pattern. Git Bash on Windows
+# ships no pkill, so fall back to PowerShell there — otherwise the cleanup
+# silently does nothing and the running API keeps the Prisma DLL locked.
+kill_matching() {
+  local pattern="$1"
+  if command -v pkill >/dev/null 2>&1; then
+    pkill -9 -f "$pattern" 2>/dev/null || true
+  else
+    powershell.exe -NoProfile -Command \
+      "Get-CimInstance Win32_Process -Filter \"Name='node.exe'\" | Where-Object { \$_.CommandLine -match '$pattern' } | ForEach-Object { Stop-Process -Id \$_.ProcessId -Force -ErrorAction SilentlyContinue }" \
+      2>/dev/null || true
+  fi
+}
+
 # ---------------------------------------------------------------------------
 # 1. Prerequisite checks
 # ---------------------------------------------------------------------------
@@ -39,6 +53,14 @@ ok "Node $(node -v), Docker $(docker --version | cut -d, -f1)"
 # ---------------------------------------------------------------------------
 # 2. Install & configure
 # ---------------------------------------------------------------------------
+# Stop any previous run FIRST: on Windows, a running API/worker holds the
+# Prisma query-engine DLL and makes `npm install` fail with EPERM on rename.
+say "Stopping any previous run..."
+kill_matching 'ts-node-dev'
+kill_matching 'worker\.ts'
+kill_matching 'expo start'
+sleep 1
+
 say "Installing dependencies (npm install)..."
 (cd "$ROOT" && npm install) || die "npm install failed"
 ok "Dependencies installed"
@@ -76,13 +98,7 @@ ok "Base data seeded"
 # ---------------------------------------------------------------------------
 # 4. Start the app
 # ---------------------------------------------------------------------------
-say "Stopping any previous run..."
-# ts-node-dev's outer wrapper exits right after spawning the actual server
-# process, so match the inner wrap.js invocation that's actually still alive.
-pkill -9 -f 'ts-node-dev/lib/wrap.js src/index.ts' 2>/dev/null || true
-pkill -9 -f 'ts-node src/workflows/worker.ts' 2>/dev/null || true
-pkill -9 -f 'expo start' 2>/dev/null || true
-sleep 1
+# (Previous run already stopped in step 2, before npm install.)
 
 # Best-effort LAN IP detection (Windows Git Bash, Linux, macOS, WSL2).
 LAN_IP=""
